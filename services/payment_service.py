@@ -3,7 +3,7 @@ import hmac
 import hashlib
 import logging
 from typing import Optional, Dict, Any
-import razorpay
+import razorpay  # type: ignore
 from dotenv import load_dotenv
 
 load_dotenv()
