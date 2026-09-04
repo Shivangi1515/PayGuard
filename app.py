@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=True)
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import engine, Base, check_db_connection, get_db
 import models  # Ensure all SQLAlchemy models are registered
@@ -49,6 +51,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("payguard.app")
 
+STATIC_DIR = PROJECT_ROOT / "static"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -78,6 +82,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Mount static assets directory
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def serve_frontend():
+    """Serves the PayGuard AI autonomous commerce frontend application."""
+    index_path = STATIC_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    raise HTTPException(status_code=404, detail="Frontend index.html not found.")
+
 
 @app.get("/health", response_model=HealthResponse)
 def health_check():
@@ -86,6 +102,51 @@ def health_check():
     if db_connected:
         return {"status": "ok", "database": "connected"}
     return {"status": "error", "database": "disconnected"}
+
+
+@app.get("/api/audit-logs")
+def get_audit_logs(
+    limit: int = Query(default=25, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Returns recent immutable audit logs from PostgreSQL for the Audit Trail drawer."""
+    logs = (
+        db.query(models.AuditLog)
+        .order_by(models.AuditLog.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": log.id,
+            "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else "N/A",
+            "agent": log.agent,
+            "action": log.action,
+            "decision": log.decision,
+            "reason": log.reason,
+            "transaction_id": log.transaction_id,
+        }
+        for log in logs
+    ]
+
+
+@app.get("/api/policies")
+def get_merchant_policies(db: Session = Depends(get_db)):
+    """Returns current active Merchant Policy configuration."""
+    policy = db.query(models.MerchantPolicy).first()
+    if not policy:
+        return {
+            "max_transaction_amount": 100000.0,
+            "high_value_threshold": 50000.0,
+            "max_automated_retries": 3,
+            "duplicate_purchase_block": True,
+        }
+    return {
+        "max_transaction_amount": policy.max_transaction_amount,
+        "high_value_threshold": policy.high_value_threshold,
+        "max_automated_retries": policy.max_automated_retries,
+        "duplicate_purchase_block": policy.duplicate_purchase_block,
+    }
 
 
 @app.post("/agent/intent", response_model=IntentContractResponse, status_code=status.HTTP_201_CREATED)
