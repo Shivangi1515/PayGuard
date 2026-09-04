@@ -183,7 +183,7 @@ class PayGuardApp {
 
     } catch (err) {
       console.error('Execution error:', err);
-      this.appendErrorBlock(agentMsgEl, err.message || 'An error occurred during agent processing.');
+      this.appendErrorBlock(agentMsgEl, err.message || 'An error occurred during agent processing.', pipelineId);
     } finally {
       this.updateProcessingState(false);
       this.scrollToActiveStream();
@@ -1086,17 +1086,60 @@ class PayGuardApp {
     `;
   }
 
-  appendErrorBlock(containerEl, msg) {
+  appendErrorBlock(containerEl, msg, pipelineId = null) {
     const slot = containerEl.querySelector('.card-slot');
     if (!slot) return;
-    slot.insertAdjacentHTML(
-      'beforeend',
+
+    if (pipelineId) {
+      this.updatePipelineStep(pipelineId, 'buyer', 'fail', 'All Candidates Failed Drift Check');
+      this.updatePipelineStep(pipelineId, 'verify', 'fail', 'Interrupted');
+      this.updatePipelineStep(pipelineId, 'policy', 'fail', 'Blocked');
+      this.updatePipelineStep(pipelineId, 'payment', 'fail', 'Prevented');
+    }
+
+    const isDriftLimit = msg.toLowerCase().includes('maximum alternative attempts') || msg.toLowerCase().includes('failed intent drift');
+
+    if (isDriftLimit) {
+      slot.insertAdjacentHTML(
+        'beforeend',
+        `
+        <div class="surface-card rounded-xl p-5 border-l-2 border-l-[#C96A67] bg-[#0C0D0C] animate-fade-in-up space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#22231F]">
+            <div class="flex items-center space-x-2 text-[#C96A67]">
+              <span class="text-base font-bold">⊘</span>
+              <span class="font-semibold text-xs uppercase tracking-wider font-mono-code">Autonomous Safety Intercept · Intent Drift Guard</span>
+            </div>
+            <span class="text-[10px] font-mono-code text-[#C96A67] bg-[#C96A67]/10 px-2 py-0.5 rounded border border-[#C96A67]/20">
+              3 ATTEMPTS EVALUATED
+            </span>
+          </div>
+
+          <p class="text-xs text-[#F3F0E8] leading-relaxed">
+            PayGuard prevented an unauthorized purchase. The Buyer Agent evaluated 3 candidate products in the merchant catalog, but <strong class="text-[#C96A67]">all 3 candidates exceeded your authorized budget or failed specification constraints</strong>.
+          </p>
+
+          <div class="p-3 bg-[#111210] rounded-lg border border-[#22231F] text-xs font-mono-code text-[#9A9991] space-y-1">
+            <div class="text-[#64635D] text-[10px] uppercase">Safety Protection Active</div>
+            <div>0 orders were created. Your funds remain 100% protected.</div>
+          </div>
+
+          <div class="text-[11px] text-[#9A9991]">
+            <strong class="text-[#D6A94A]">Suggestion:</strong> Try increasing your budget or entering a broader search term (e.g. <em>"Buy me wireless headphones under ₹35,000"</em> or <em>"Buy a laptop under ₹80,000"</em>).
+          </div>
+        </div>
       `
-      <div class="p-4 rounded-xl bg-[#C96A67]/10 border border-[#C96A67]/30 text-xs text-[#C96A67] animate-fade-in-up">
-        <span class="font-bold">Execution Error:</span> ${this.escapeHtml(msg)}
-      </div>
-    `
-    );
+      );
+    } else {
+      slot.insertAdjacentHTML(
+        'beforeend',
+        `
+        <div class="p-4 rounded-xl bg-[#C96A67]/10 border border-[#C96A67]/30 text-xs text-[#C96A67] animate-fade-in-up">
+          <span class="font-bold font-mono-code uppercase text-[11px] block mb-1">Execution Notice:</span>
+          <p class="leading-relaxed font-mono-code">${this.escapeHtml(msg)}</p>
+        </div>
+      `
+      );
+    }
   }
 
   // --- Drawers & Modals ---
