@@ -5,8 +5,14 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import engine, Base, check_db_connection, get_db
 import models  # Ensure all SQLAlchemy models are registered
-from schemas import HealthResponse, IntentContract, PurchaseIntentRequest
+from schemas import HealthResponse, IntentContract, PurchaseIntentRequest, BuyRequest, PurchaseProposal
 from agents.intent_agent import intent_agent, IntentExtractionError
+from agents.buyer_agent import (
+    buyer_agent,
+    BuyerAgentError,
+    IntentContractNotFoundError,
+    NoMatchingProductError,
+)
 from services.audit_service import audit_service
 
 # Configure logging
@@ -121,5 +127,49 @@ def extract_purchase_intent(
         )
 
 
+@app.post("/agent/buy", response_model=PurchaseProposal)
+def propose_purchase(
+    payload: BuyRequest,
+    db: Session = Depends(get_db),
+):
+    """Buyer Agent endpoint.
+
+    Evaluates candidate products from PostgreSQL based on the IntentContract,
+    uses Groq to select the best candidate, and returns a purchase proposal.
+    """
+    try:
+        proposal = buyer_agent.propose_purchase(db, intent_contract_id=payload.intent_contract_id)
+        return proposal
+    except IntentContractNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except NoMatchingProductError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except BuyerAgentError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in /agent/buy: {e}")
+        audit_service.log(
+            db=db,
+            agent="Buyer Agent",
+            action="Purchase Proposal",
+            decision="FAILURE",
+            reason=f"Internal server error: {str(e)}",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while generating the purchase proposal.",
+        )
+
+
 if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+
