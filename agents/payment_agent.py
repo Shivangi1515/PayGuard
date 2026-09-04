@@ -109,7 +109,48 @@ class PaymentAgent:
             ),
         )
 
-        # 5. Enforce Policy Rules
+        # 5. Enforce Duplicate Purchase & Retry Protections
+        completed_tx = (
+            db.query(models.Transaction)
+            .filter(
+                models.Transaction.intent_contract_id == intent.id,
+                models.Transaction.product_id == product.id,
+                models.Transaction.status == "COMPLETED",
+            )
+            .first()
+        )
+        if completed_tx:
+            audit_service.log(
+                db=db,
+                agent="Payment Agent",
+                action="Payment Attempt",
+                decision="BLOCKED",
+                reason=f"Duplicate purchase blocked: Intent #{intent.id} and Product #{product.id} already completed in Transaction #{completed_tx.id}",
+                transaction_id=completed_tx.id,
+            )
+            raise PolicyBlockedError("Transaction blocked: this purchase has already been completed.")
+
+        merchant_policy = db.query(models.MerchantPolicy).first()
+        max_retries = merchant_policy.max_automated_retries if merchant_policy else 3
+        attempt_count = (
+            db.query(models.Transaction)
+            .filter(
+                models.Transaction.intent_contract_id == intent.id,
+                models.Transaction.product_id == product.id,
+            )
+            .count()
+        )
+        if attempt_count >= max_retries and not user_confirmed:
+            audit_service.log(
+                db=db,
+                agent="Payment Agent",
+                action="Payment Attempt",
+                decision="BLOCKED",
+                reason=f"Automated retry limit ({max_retries}) reached for Intent #{intent.id} and Product #{product.id}",
+            )
+            raise PolicyBlockedError(f"Maximum automated retries ({max_retries}) reached. Explicit user approval required.")
+
+        # 6. Enforce Policy Rules
         if policy_result.decision == "BLOCK":
             # Rule 3: BLOCK transactions must never create a Razorpay order
             tx = models.Transaction(
@@ -164,7 +205,7 @@ class PaymentAgent:
                 f"User confirmation required: {policy_result.reason}. Resend with user_confirmed=true to proceed."
             )
 
-        # 6. Policy is APPROVE or ASK_USER with user_confirmed=True -> Create Razorpay order
+        # 7. Policy is APPROVE or ASK_USER with user_confirmed=True -> Create Razorpay order
         receipt_id = f"rcpt_ic{intent.id}_p{product.id}"
         notes = {
             "intent_contract_id": intent.id,
@@ -190,7 +231,7 @@ class PaymentAgent:
             )
             raise PaymentAgentError(f"Payment order creation failed: {str(e)}")
 
-        # 7. Persist Transaction in Database
+        # 8. Persist Transaction in Database
         tx = models.Transaction(
             intent_contract_id=intent.id,
             product_id=product.id,
@@ -206,7 +247,7 @@ class PaymentAgent:
         db.commit()
         db.refresh(tx)
 
-        # 8. Log Order Creation in Audit Logs
+        # 9. Log Order Creation in Audit Logs
         audit_service.log(
             db=db,
             agent="Payment Agent",
@@ -240,7 +281,7 @@ class PaymentAgent:
         razorpay_signature: str,
     ) -> PaymentVerificationResponse:
         """Verifies the cryptographic payment signature received from Razorpay."""
-        # 1. Fetch Transaction
+        # 1. Fetch Transaction from PostgreSQL
         tx = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
         if not tx:
             audit_service.log(
@@ -248,9 +289,21 @@ class PaymentAgent:
                 agent="Payment Agent",
                 action="Payment Verification",
                 decision="FAILURE",
-                reason=f"Transaction ID {transaction_id} not found.",
+                reason=f"Transaction ID {transaction_id} not found in database.",
             )
             raise PaymentAgentError(f"Transaction ID {transaction_id} not found.")
+
+        # 2. Strict Server-Side Order ID Verification
+        if tx.razorpay_order_id != razorpay_order_id:
+            audit_service.log(
+                db=db,
+                agent="Payment Agent",
+                action="Security Violation",
+                decision="REJECTED",
+                reason=f"Order mismatch for Transaction #{tx.id}: Expected '{tx.razorpay_order_id}', received '{razorpay_order_id}'",
+                transaction_id=tx.id,
+            )
+            raise PaymentAgentError("Security violation: Razorpay order ID does not match transaction record.")
 
         # Log verification check
         audit_service.log(

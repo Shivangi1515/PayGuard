@@ -76,12 +76,38 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down PayGuard Backend...")
 
 
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request
+
 app = FastAPI(
     title="PayGuard API",
     description="Backend API for PayGuard Autonomous Agent Payment & Policy System",
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Explicit Production-Grade CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # Mount static assets directory
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
