@@ -58,15 +58,35 @@ class PaymentService:
         self._explicit_key_secret = value
         self._client = None
 
+    def get_client(self, force_new: bool = False) -> razorpay.Client:
+        """Instantiates or returns the Razorpay client, refreshing on demand."""
+        current_auth = (self.key_id, self.key_secret)
+        if force_new or self._client is None or getattr(self._client, "auth", None) != current_auth:
+            if not self.key_id or not self.key_secret:
+                logger.warning("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET not configured in .env.")
+            client = razorpay.Client(auth=current_auth)
+            # Configure requests session with retries for transient socket resets
+            try:
+                from urllib3.util.retry import Retry
+                from requests.adapters import HTTPAdapter
+                adapter = HTTPAdapter(
+                    max_retries=Retry(
+                        total=3,
+                        backoff_factor=0.3,
+                        status_forcelist=[500, 502, 503, 504],
+                    )
+                )
+                client.session.mount("https://", adapter)
+                client.session.mount("http://", adapter)
+            except Exception as opt_err:
+                logger.debug(f"Session adapter configuration skipped: {opt_err}")
+            self._client = client
+        return self._client
+
     @property
     def client(self) -> razorpay.Client:
         """Lazily initializes and returns the Razorpay client using current credentials."""
-        current_auth = (self.key_id, self.key_secret)
-        if self._client is None or getattr(self._client, "auth", None) != current_auth:
-            if not self.key_id or not self.key_secret:
-                logger.warning("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET not configured in .env.")
-            self._client = razorpay.Client(auth=current_auth)
-        return self._client
+        return self.get_client()
 
     def get_public_key(self) -> str:
         """Returns the public Razorpay Key ID safe for client-side consumption."""
@@ -78,6 +98,7 @@ class PaymentService:
         currency: str = "INR",
         receipt: Optional[str] = None,
         notes: Optional[Dict[str, Any]] = None,
+        max_retries: int = 3,
     ) -> Dict[str, Any]:
         """Creates a Razorpay order in Test Mode using the validated final amount.
 
@@ -86,6 +107,7 @@ class PaymentService:
             currency: 3-letter currency code (default 'INR').
             receipt: Internal transaction/order reference.
             notes: Metadata dictionary.
+            max_retries: Maximum attempts on transient socket/connection resets.
 
         Returns:
             Dict containing order details returned by Razorpay API.
@@ -105,18 +127,37 @@ class PaymentService:
         if notes:
             order_data["notes"] = {str(k): str(v)[:50] for k, v in notes.items()}
 
-        try:
-            safe_key_preview = f"{self.key_id[:10]}..." if len(self.key_id) >= 10 else self.key_id
-            logger.info(
-                f"Creating Razorpay Test order: amount=INR {amount:.2f} ({amount_in_paise} paise), "
-                f"key_id={safe_key_preview}, receipt={receipt}"
-            )
-            order = self.client.order.create(data=order_data)
-            logger.info(f"Razorpay order created successfully: ID={order.get('id')}")
-            return order
-        except Exception as e:
-            logger.error(f"Failed to create Razorpay order: {e}")
-            raise PaymentServiceError(f"Razorpay order creation failed: {str(e)}")
+        last_err: Optional[Exception] = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                safe_key_preview = f"{self.key_id[:10]}..." if len(self.key_id) >= 10 else self.key_id
+                logger.info(
+                    f"Creating Razorpay Test order (attempt {attempt}/{max_retries}): "
+                    f"amount=INR {amount:.2f} ({amount_in_paise} paise), key_id={safe_key_preview}, receipt={receipt}"
+                )
+                # Force fresh client if retrying after connection reset
+                client = self.get_client(force_new=(attempt > 1))
+                order = client.order.create(data=order_data)
+                logger.info(f"Razorpay order created successfully: ID={order.get('id')}")
+                return order
+            except Exception as e:
+                last_err = e
+                err_str = str(e)
+                is_transient = any(keyword in err_str.lower() for keyword in [
+                    "connection reset", "connection aborted", "forcibly closed", "10054", "timeout", "timed out"
+                ])
+                if is_transient and attempt < max_retries:
+                    logger.warning(
+                        f"Transient connection error on attempt {attempt}: {e}. Retrying with fresh session..."
+                    )
+                    import time
+                    time.sleep(0.5 * attempt)
+                    continue
+                else:
+                    logger.error(f"Failed to create Razorpay order on attempt {attempt}: {e}")
+                    break
+
+        raise PaymentServiceError(f"Razorpay order creation failed: {str(last_err)}")
 
     def verify_payment_signature(
         self,
