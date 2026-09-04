@@ -5,9 +5,8 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Groq](https://img.shields.io/badge/Groq-llama--3.3--70b--versatile-F55036?style=flat-square)](https://groq.com)
+[![Groq](https://img.shields.io/badge/Groq-openai%2Fgpt--oss--20b-F55036?style=flat-square)](https://groq.com)
 [![Razorpay](https://img.shields.io/badge/Razorpay-Test_Mode-0C2340?style=flat-square&logo=razorpay&logoColor=white)](https://razorpay.com)
-[![License](https://img.shields.io/badge/License-MIT-gold?style=flat-square)](LICENSE)
 
 ---
 
@@ -90,8 +89,8 @@ PayGuard cleanly separates AI-driven agents from deterministic backend services:
 
 | Component | Classification | Core Responsibility | Underlying Technology | Determinism |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Intent Agent** | **AI Agent** | Parses natural-language requests into structured parameters (`product_type`, `purpose`, `max_budget`, `quantity`, `preferences`, `payment_authorized`) and locks an immutable `IntentContract` in PostgreSQL. | Groq LLM (`llama-3.3-70b-versatile`) + Pydantic v2 | Semantic + Schema-enforced |
-| **2. Buyer Agent** | **AI Agent** | Discovers merchant inventory candidates in PostgreSQL, calculates base + shipping + tax formulas, classifies catalog availability, and runs up to 3 alternative candidate evaluations. | PostgreSQL + Groq LLM (`llama-3.3-70b-versatile`) + Python | Hybrid Discovery |
+| **1. Intent Agent** | **AI Agent** | Parses natural-language requests into structured parameters (`product_type`, `purpose`, `max_budget`, `quantity`, `preferences`, `payment_authorized`) and locks an immutable `IntentContract` in PostgreSQL. | Groq LLM (`openai/gpt-oss-20b`) + Pydantic v2 | Semantic + Schema-enforced |
+| **2. Buyer Agent** | **AI Agent** | Discovers merchant inventory candidates in PostgreSQL, calculates base + shipping + tax formulas, classifies catalog availability, and runs up to 3 alternative candidate evaluations. | PostgreSQL + Groq LLM (`openai/gpt-oss-20b`) + Python | Hybrid Discovery |
 | **3. Verification Agent** | **Deterministic Service** | Independently audits candidate products against the `IntentContract` across 5 isolated checks without LLM involvement. | Pure Python + PostgreSQL | **100% Deterministic** |
 | **4. Policy Engine** | **Deterministic Policy Service** *(Not an AI agent)* | Evaluates deterministic financial and merchant guardrails (budget caps, high-value thresholds, duplicate blocks). Returns `APPROVE`, `ASK_USER`, or `BLOCK`. | Pure Python + PostgreSQL | **100% Deterministic** |
 | **5. Payment Agent** | **Payment Execution Service** | Re-verifies all parameters on the backend, generates server-side Razorpay test orders, initiates checkout, and cryptographically verifies signatures. | Razorpay Python SDK + HMAC SHA256 | **100% Cryptographic** |
@@ -148,17 +147,64 @@ PayGuard classifies and handles catalog availability failures with structured us
 
 ---
 
-## 💳 Razorpay Test Mode Integration
+## 💳 Razorpay Test API & Indian Payment Simulation
 
-PayGuard integrates with **Razorpay Test Mode** for development, demonstration, and validation of agentic commerce workflows.
+PayGuard integrates with **Razorpay Test Mode** to simulate full Indian payment flows (Card, UPI, Netbanking) in a sandboxed, risk-free environment without actual money movement.
 
 > [!NOTE]
-> PayGuard uses Razorpay Test Mode for development and demo transactions. Test transactions do not represent live production payment processing.
+> PayGuard operates strictly on Razorpay Test Mode for development, demonstration, and validation. Test transactions do not represent live production payment processing.
 
-* **Server-Side Order Creation**: All Razorpay orders are created exclusively from the backend (`POST /agent/payment/create`) using validated database amounts.
+### How Razorpay Test API is Used in PayGuard
+
+```
+ ┌──────────────────────┐         ┌────────────────────────┐         ┌──────────────────────┐
+ │   Frontend Client    │         │    PayGuard Backend    │         │ Razorpay Test API    │
+ └──────────┬───────────┘         └───────────┬────────────┘         └──────────┬───────────┘
+            │                                 │                                 │
+            │ 1. Request Purchase Clearance   │                                 │
+            ├────────────────────────────────►│ 2. Evaluate Policy              │
+            │                                 │    (Passes Policy Checks)       │
+            │                                 │ 3. Create Test Order            │
+            │                                 ├────────────────────────────────►│
+            │                                 │ 4. Return order_id & public key │
+            │ 5. Receive order_id + pub_key   │◄────────────────────────────────┤
+            │◄────────────────────────────────┤                                 │
+            │                                 │                                 │
+            │ 6. Open Razorpay Test Popup     │                                 │
+            │    (Simulate Card / UPI / Net)  │                                 │
+            │ 7. Payment Success in Modal     │                                 │
+            │                                 │                                 │
+            │ 8. Send payment tokens          │                                 │
+            │    (order_id, payment_id, sig)  │                                 │
+            ├────────────────────────────────►│ 9. Verify HMAC SHA256 Signature│
+            │                                 │    against RAZORPAY_KEY_SECRET  │
+            │ 10. Return COMPLETED status     │ 10. Update DB: COMPLETED        │
+            │◄────────────────────────────────┤                                 │
+```
+
+### Simulating Indian Payment Methods in Test Mode
+
+When the native Razorpay Test Checkout modal opens in the UI, you can simulate multiple Indian payment instruments:
+
+1. **Indian & International Test Cards**:
+   * **Card Number**: `4111 1111 1111 1111` (or any valid Razorpay test card format).
+   * **Expiry Date**: Any future month/year (e.g. `12/28`).
+   * **Cardholder Name**: Any name (e.g. `Test Buyer`).
+   * **CVV**: Any 3-digit number (e.g. `123`).
+   * **2FA / OTP Simulation**: The Razorpay test gateway displays a simulated Indian banking OTP challenge. Click **"Success"** to simulate an authenticated bank approval or **"Failure"** to test gateway rejection.
+
+2. **UPI Simulation (Unified Payments Interface)**:
+   * **VPA / UPI ID**: Enter `success@razorpay` to simulate instantaneous UPI approval or `failure@razorpay` to simulate a failed UPI request.
+
+3. **Netbanking Simulation**:
+   * Select any major Indian bank (e.g. HDFC, SBI, ICICI, Axis).
+   * Razorpay redirects to a sandbox confirmation page to simulate successful bank authorization.
+
+### Backend Verification Safeguards
 * **Protected Secrets**: `RAZORPAY_KEY_SECRET` remains server-side only and is never exposed to the frontend.
-* **Server-Side Verification**: Payment completion is validated entirely on the backend via HMAC SHA256 cryptographic signature verification.
-* **Untrusted Frontend Callbacks**: A frontend success callback alone **cannot** mark a transaction as completed. The database status remains `ORDER_CREATED` until the server cryptographically validates the signature.
+* **Server-Side Signature Validation**: Payment completion is cryptographically validated entirely on the backend via HMAC SHA256:
+  $$\text{Expected Signature} = \text{HMAC-SHA256}(\text{order\_id} + "|" + \text{payment\_id}, \text{RAZORPAY\_KEY\_SECRET})$$
+* **Untrusted Frontend Callbacks**: A frontend success callback alone **cannot** mark a transaction as completed. The database status remains `ORDER_CREATED` until the server validates the cryptographic signature.
 
 ---
 
@@ -385,7 +431,7 @@ PayGuard/
 │   ├── audit_service.py        # PostgreSQL audit trail logging service
 │   ├── catalog_service.py      # Catalog lookup helper
 │   ├── drift_detector.py       # 5-factor semantic and numerical drift detector
-│   ├── groq_service.py         # Groq API client (llama-3.3-70b-versatile)
+│   ├── groq_service.py         # Groq API client (openai/gpt-oss-20b)
 │   ├── payment_service.py      # Razorpay client with connection retry resilience
 │   └── policy_engine.py        # Deterministic Python policy decision engine
 ├── static/
@@ -460,7 +506,7 @@ DATABASE_URL=postgresql://username:password@localhost:5432/payguard
 
 # Groq LLM Configuration
 GROQ_API_KEY=gsk_your_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-20b
 
 # Razorpay Test Mode Credentials
 RAZORPAY_KEY_ID=rzp_test_your_key_id_here
@@ -510,12 +556,13 @@ Open your browser and navigate to:
 ## 🔮 Implemented vs. Future Extensions
 
 ### Currently Implemented
-- [x] Multi-agent intent extraction with Groq LLM (`llama-3.3-70b-versatile`)
+- [x] Multi-agent intent extraction with Groq LLM (`openai/gpt-oss-20b`)
 - [x] Immutable `IntentContract` locking in PostgreSQL
 - [x] Catalog search with availability classification & 3-attempt alternative finder
 - [x] 5-factor independent deterministic verification matrix
 - [x] Deterministic policy engine (`APPROVE`, `ASK_USER`, `BLOCK`)
 - [x] Razorpay Test Mode checkout integration with server-side HMAC SHA256 signature verification
+- [x] Indian payment method simulation (Cards, UPI, Netbanking, simulated OTP) in Test Mode
 - [x] Immutable audit trail logging in PostgreSQL
 - [x] Minimal editorial frontend with real-time multi-agent execution pipeline
 
@@ -524,9 +571,3 @@ Open your browser and navigate to:
 - User authentication and multi-tenant intent contract management
 - Webhook-based asynchronous payment capture verification
 - Configurable dynamic policy rules per organization
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
