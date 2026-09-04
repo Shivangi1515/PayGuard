@@ -102,27 +102,29 @@ def run_payment_tests():
         assert verify_resp_invalid.verified is False
 
         logger.info("\n=== 3. TESTING POLICY 'ASK_USER' WORKFLOW ===")
-        # Acer Swift Go 14: Final amount 71038.20 INR (>= 50,000 high-value threshold -> ASK_USER)
-        prod_acer = db.query(models.Product).filter(models.Product.name.ilike("%Acer Swift%")).first()
-        intent_acer = models.IntentContract(
-            raw_request="Buy me a laptop under 80000, quantity 1",
-            product_type="Laptop",
-            purpose="coding",
-            max_budget=80000.0,
-            quantity=1,
+        # Bose QuietComfort Ultra: Unit final = 41182.00 INR. For quantity 2: Final amount = 82364.00 INR
+        # 82364.00 >= 80,000 high-value threshold and <= 100,000 max_tx -> ASK_USER!
+        prod_bose = db.query(models.Product).filter(models.Product.name.ilike("%Bose QuietComfort%")).first()
+        assert prod_bose is not None
+        intent_bose = models.IntentContract(
+            raw_request="Buy 2 Bose headphones under 90000",
+            product_type="Headphones",
+            purpose="music",
+            max_budget=90000.0,
+            quantity=2,
             payment_authorized=True,
         )
-        db.add(intent_acer)
+        db.add(intent_bose)
         db.commit()
-        db.refresh(intent_acer)
+        db.refresh(intent_bose)
 
         # 3.1 Without user_confirmed -> should raise UserConfirmationRequiredError
         try:
             payment_agent.initiate_payment(
                 db=db,
-                intent_contract_id=intent_acer.id,
-                product_id=prod_acer.id,
-                quantity=1,
+                intent_contract_id=intent_bose.id,
+                product_id=prod_bose.id,
+                quantity=2,
                 user_confirmed=False,
             )
             assert False, "Should have raised UserConfirmationRequiredError"
@@ -132,17 +134,17 @@ def run_payment_tests():
         # 3.2 With user_confirmed=True -> should successfully create Razorpay order
         mock_high_order = {
             "id": "order_HighVal123456",
-            "amount": 7103820,
+            "amount": 8236400,
             "currency": "INR",
             "status": "created",
-            "receipt": f"rcpt_ic{intent_acer.id}_p{prod_acer.id}",
+            "receipt": f"rcpt_ic{intent_bose.id}_p{prod_bose.id}",
         }
         with patch.object(payment_service.client.order, "create", return_value=mock_high_order):
             order_resp_high = payment_agent.initiate_payment(
                 db=db,
-                intent_contract_id=intent_acer.id,
-                product_id=prod_acer.id,
-                quantity=1,
+                intent_contract_id=intent_bose.id,
+                product_id=prod_bose.id,
+                quantity=2,
                 user_confirmed=True,
             )
             logger.info(f"✓ Razorpay Order Created after user confirmation: ID={order_resp_high.razorpay_order_id}")
@@ -150,8 +152,9 @@ def run_payment_tests():
             assert order_resp_high.policy_decision == "ASK_USER"
 
         logger.info("\n=== 4. TESTING POLICY 'BLOCK' WORKFLOW ===")
-        # Final amount exceeds budget -> BLOCK
-        intent_block = models.IntentContract(
+        # 4.1 Final amount exceeds budget -> BLOCK
+        prod_acer = db.query(models.Product).filter(models.Product.name.ilike("%Acer Swift%")).first()
+        intent_block_budget = models.IntentContract(
             raw_request="Buy me a laptop under 40000",
             product_type="Laptop",
             purpose="coding",
@@ -159,21 +162,72 @@ def run_payment_tests():
             quantity=1,
             payment_authorized=True,
         )
-        db.add(intent_block)
+        db.add(intent_block_budget)
         db.commit()
-        db.refresh(intent_block)
+        db.refresh(intent_block_budget)
 
         try:
             payment_agent.initiate_payment(
                 db=db,
-                intent_contract_id=intent_block.id,
+                intent_contract_id=intent_block_budget.id,
                 product_id=prod_acer.id,
                 quantity=1,
                 user_confirmed=True,
             )
             assert False, "Should have raised PolicyBlockedError"
         except PolicyBlockedError as e:
-            logger.info(f"✓ Correctly blocked payment creation: {e}")
+            logger.info(f"✓ Correctly blocked payment creation (Exceeds user budget): {e}")
+
+        # 4.2 Payment not authorized -> BLOCK
+        intent_block_auth = models.IntentContract(
+            raw_request="Check laptop specs without buying",
+            product_type="Laptop",
+            purpose="coding",
+            max_budget=80000.0,
+            quantity=1,
+            payment_authorized=False,
+        )
+        db.add(intent_block_auth)
+        db.commit()
+        db.refresh(intent_block_auth)
+
+        try:
+            payment_agent.initiate_payment(
+                db=db,
+                intent_contract_id=intent_block_auth.id,
+                product_id=prod_acer.id,
+                quantity=1,
+                user_confirmed=True,
+            )
+            assert False, "Should have raised PolicyBlockedError"
+        except PolicyBlockedError as e:
+            logger.info(f"✓ Correctly blocked payment creation (Payment not authorized): {e}")
+
+        # 4.3 Exceeds merchant maximum transaction amount (100,000 INR) -> BLOCK
+        prod_mac = db.query(models.Product).filter(models.Product.name.ilike("%MacBook%")).first()
+        intent_block_max_tx = models.IntentContract(
+            raw_request="Buy MacBook Pro under 250000",
+            product_type="Laptop",
+            purpose="design",
+            max_budget=250000.0,
+            quantity=1,
+            payment_authorized=True,
+        )
+        db.add(intent_block_max_tx)
+        db.commit()
+        db.refresh(intent_block_max_tx)
+
+        try:
+            payment_agent.initiate_payment(
+                db=db,
+                intent_contract_id=intent_block_max_tx.id,
+                product_id=prod_mac.id,
+                quantity=1,
+                user_confirmed=True,
+            )
+            assert False, "Should have raised PolicyBlockedError"
+        except PolicyBlockedError as e:
+            logger.info(f"✓ Correctly blocked payment creation (Exceeds merchant max tx cap): {e}")
 
         logger.info("\n=== 5. VERIFYING AUDIT LOGS FOR PAYMENT WORKFLOW ===")
         logs = (

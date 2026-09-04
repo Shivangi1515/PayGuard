@@ -30,18 +30,26 @@ class PolicyEngine:
         """Determines whether to APPROVE, ASK_USER, or BLOCK a proposed transaction.
 
         This engine is 100% deterministic Python logic. LLMs are NOT involved in this decision.
+        Evaluates conditions in strict priority order:
 
-        Args:
-            db: Database session.
-            intent: User IntentContract.
-            product: Candidate Product.
-            verification_checks: List of results from VerificationAgent.
-            all_verification_passed: Boolean indicating all 5 checks passed.
-            final_amount: Calculated total amount in INR.
-            quantity: Quantity requested.
+        STEP 1 — HARD BLOCK CONDITIONS (Evaluated in order A to H):
+          A. payment_authorized == false
+          B. final_amount > intent.max_budget
+          C. final_amount > merchant.maximum_transaction_amount
+          D. requested quantity is exceeded (quantity > intent.quantity)
+          E. product is out of stock (product.stock < quantity)
+          F. required verification check fails
+          G. intent drift violates a hard user constraint
+          H. duplicate purchase protection is triggered
+
+        STEP 2 — ASK_USER CONDITIONS:
+          If no hard block condition is met and final_amount >= merchant.high_value_threshold (₹80,000).
+
+        STEP 3 — APPROVE CONDITIONS:
+          If all hard block conditions pass and final_amount < merchant.high_value_threshold.
 
         Returns:
-            VerificationResponse: Containing final decision, reason, and check details.
+            VerificationResponse: Containing final decision (APPROVE | ASK_USER | BLOCK), reason, and check details.
         """
         # Fetch active Merchant Policy from PostgreSQL
         policy = db.query(models.MerchantPolicy).first()
@@ -51,7 +59,7 @@ class PolicyEngine:
 
         logger.info(
             f"Policy Engine evaluating: Final Amount=INR {final_amount:.2f}, "
-            f"User Budget=INR {intent.max_budget:.2f}, High-Value Threshold=INR {high_value_threshold:.2f}, "
+            f"User Budget=INR {intent.max_budget:.2f}, Autonomous Limit=INR {high_value_threshold:.2f}, "
             f"Max Tx Limit=INR {max_tx_amount:.2f}, Auth={intent.payment_authorized}"
         )
 
@@ -59,41 +67,42 @@ class PolicyEngine:
         reason = "All verification checks passed, payment is authorized, and transaction amount is within budget and policy limits."
 
         # -------------------------------------------------------------
-        # 1. Deterministic BLOCK Rules
+        # STEP 1 — HARD BLOCK CONDITIONS (Strict Priority Evaluation)
         # -------------------------------------------------------------
 
-        # Rule 1.1: Verification failure
-        if not all_verification_passed:
-            failed_checks = [c.check_name for c in verification_checks if c.status == "FAIL"]
+        # Condition A: payment_authorized == false
+        if not intent.payment_authorized:
             decision = "BLOCK"
-            reason = f"Transaction blocked: verification check(s) failed: {', '.join(failed_checks)}."
+            reason = "Transaction blocked: payment authorization was not provided by user in the intent contract."
 
-        # Rule 1.2: Payment not authorized
-        elif not intent.payment_authorized:
-            decision = "BLOCK"
-            reason = "Transaction blocked: payment authorization was not provided by user in the intent request."
-
-        # Rule 1.3: Quantity exceeds requested
-        elif quantity > intent.quantity:
-            decision = "BLOCK"
-            reason = f"Transaction blocked: proposed quantity ({quantity}) exceeds authorized quantity ({intent.quantity})."
-
-        # Rule 1.4: Out of stock
-        elif product.stock < quantity:
-            decision = "BLOCK"
-            reason = f"Transaction blocked: product '{product.name}' is out of stock ({product.stock} available, {quantity} requested)."
-
-        # Rule 1.5: Final amount exceeds user max budget
+        # Condition B: final_amount > intent.max_budget (HARD USER BUDGET CAP)
         elif final_amount > intent.max_budget:
             decision = "BLOCK"
-            reason = f"Transaction blocked: final amount (INR {final_amount:.2f}) exceeds user max budget (INR {intent.max_budget:.2f})."
+            reason = f"Transaction blocked: final amount (INR {final_amount:.2f}) exceeds user authorized max budget (INR {intent.max_budget:.2f})."
 
-        # Rule 1.6: Final amount exceeds merchant maximum transaction limit
+        # Condition C: final_amount > merchant.maximum_transaction_amount (HARD MERCHANT MAX CAP)
         elif final_amount > max_tx_amount:
             decision = "BLOCK"
             reason = f"Transaction blocked: final amount (INR {final_amount:.2f}) exceeds merchant maximum transaction limit (INR {max_tx_amount:.2f})."
 
-        # Rule 1.7: Duplicate purchase detection
+        # Condition D: requested quantity is exceeded
+        elif quantity > intent.quantity:
+            decision = "BLOCK"
+            reason = f"Transaction blocked: proposed quantity ({quantity}) exceeds authorized quantity ({intent.quantity})."
+
+        # Condition E: product is out of stock
+        elif product.stock < quantity:
+            decision = "BLOCK"
+            reason = f"Transaction blocked: product '{product.name}' is out of stock ({product.stock} available, {quantity} requested)."
+
+        # Condition F & G: required verification check fails / intent drift violates hard user constraint
+        elif not all_verification_passed:
+            failed_checks = [c.check_name for c in verification_checks if c.status == "FAIL"]
+            failed_details = [f"{c.check_name}: {c.explanation}" for c in verification_checks if c.status == "FAIL"]
+            decision = "BLOCK"
+            reason = f"Transaction blocked: verification check(s) failed ({', '.join(failed_checks)}): {'; '.join(failed_details)}"
+
+        # Condition H: duplicate purchase protection is triggered
         elif duplicate_block_enabled:
             existing_tx = (
                 db.query(models.Transaction)
@@ -106,20 +115,31 @@ class PolicyEngine:
             )
             if existing_tx:
                 decision = "BLOCK"
-                reason = f"Transaction blocked: duplicate purchase detected for IntentContract #{intent.id} and Product #{product.id}."
+                reason = f"Transaction blocked: duplicate purchase protection triggered for IntentContract #{intent.id} and Product #{product.id} (already completed in Transaction #{existing_tx.id})."
 
         # -------------------------------------------------------------
-        # 2. Deterministic ASK_USER Rule (High Value Threshold)
+        # STEP 2 — ASK_USER (Autonomous Payment Limit / High-Value Guardrail)
         # -------------------------------------------------------------
         if decision != "BLOCK" and final_amount >= high_value_threshold:
             decision = "ASK_USER"
             reason = (
                 f"Transaction requires user confirmation: final amount (INR {final_amount:.2f}) "
-                f"reaches or exceeds merchant high-value threshold (INR {high_value_threshold:.2f})."
+                f"reaches or exceeds merchant autonomous payment limit (INR {high_value_threshold:.2f})."
             )
 
         # -------------------------------------------------------------
-        # 3. Audit Logging
+        # STEP 3 — APPROVE
+        # -------------------------------------------------------------
+        if decision != "BLOCK" and decision != "ASK_USER":
+            decision = "APPROVE"
+            reason = (
+                "All verification checks passed, payment is authorized, and transaction amount "
+                f"(INR {final_amount:.2f}) is within user budget (INR {intent.max_budget:.2f}) "
+                f"and autonomous payment limit (INR {high_value_threshold:.2f})."
+            )
+
+        # -------------------------------------------------------------
+        # Audit Logging
         # -------------------------------------------------------------
         audit_service.log(
             db=db,

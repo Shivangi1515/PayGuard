@@ -136,17 +136,17 @@ class VerificationAgent:
                 )
             )
 
-        # Check 5: Final amount is calculated as: base_price + shipping_charge + tax
-        calculated_final = round(product.base_price + product.shipping_charge + product.tax, 2)
+        # Check 5: Final amount is calculated as: (base_price + shipping_charge + tax) * quantity
+        calculated_final = round((product.base_price + product.shipping_charge + product.tax) * quantity, 2)
         checks.append(
             VerificationCheck(
                 check_name="pricing_calculation",
                 status="PASS",
                 explanation=(
                     f"Final amount calculated correctly: INR {calculated_final:.2f} = "
-                    f"Base (INR {product.base_price:.2f}) + "
+                    f"[Base (INR {product.base_price:.2f}) + "
                     f"Shipping (INR {product.shipping_charge:.2f}) + "
-                    f"Tax (INR {product.tax:.2f})."
+                    f"Tax (INR {product.tax:.2f})] * Quantity ({quantity})."
                 ),
             )
         )
