@@ -13,8 +13,8 @@
   
   --accent-gold: #D6A94A;
   --accent-gold-hover: #E2B95C;
-  --accent-gold-subtle: rgba(214, 169, 74, 0.12);
-  --accent-gold-border: rgba(214, 169, 74, 0.28);
+  --accent-gold-subtle: rgba(214, 169, 74, 0.10);
+  --accent-gold-border: rgba(214, 169, 74, 0.25);
   
   --accent-blue: #1688D4;
   --accent-blue-subtle: rgba(22, 136, 212, 0.12);
@@ -59,8 +59,8 @@ body {
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -76,11 +76,11 @@ body {
   background: var(--border-hover);
 }
 
-/* Subtle Card Glows & Transitions */
+/* Surface Cards */
 .card-base {
   background-color: var(--surface-secondary);
   border: 1px solid var(--border-subtle);
-  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card-base:hover {
@@ -90,6 +90,19 @@ body {
 .card-elevated {
   background-color: var(--surface-elevated);
   border: 1px solid var(--border-subtle);
+}
+
+/* Command Box Input Container */
+.command-box {
+  background-color: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.command-box:focus-within {
+  border-color: var(--accent-gold-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--accent-gold-border);
 }
 
 /* Pulsing Agent Node */
@@ -108,7 +121,7 @@ body {
   animation: pulse-subtle 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Fast Pipeline Progress Spinner */
+/* Spinner */
 @keyframes spin-slow {
   from {
     transform: rotate(0deg);
@@ -122,11 +135,11 @@ body {
   animation: spin-slow 1.2s linear infinite;
 }
 
-/* Animations */
+/* Fade In Up */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -135,7 +148,7 @@ body {
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeInUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Button Primary (Champagne Gold) */
@@ -144,17 +157,22 @@ body {
   color: #080908;
   font-weight: 600;
   border: 1px solid transparent;
-  transition: all 0.18s ease;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.btn-gold:hover {
+.btn-gold:hover:not(:disabled) {
   background-color: var(--accent-gold-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(214, 169, 74, 0.18);
+  box-shadow: 0 4px 16px rgba(214, 169, 74, 0.22);
 }
 
-.btn-gold:active {
+.btn-gold:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.btn-gold:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Button Secondary (Dark Surface) */
@@ -171,25 +189,7 @@ body {
   color: #FFFFFF;
 }
 
-/* Pill prompt on empty state */
-.prompt-pill {
-  background-color: var(--surface-secondary);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
-}
-
-.prompt-pill:hover {
-  background-color: var(--surface-elevated);
-  border-color: var(--accent-gold-border);
-  color: var(--text-primary);
-  transform: translateY(-1px);
-}
-
-/* Line Clamp */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* Textarea Auto-expand */
+textarea {
+  resize: none;
 }

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PayGuard — The AI Agent That Pays Within Your Intent</title>
   
-  <!-- Favicon / Meta -->
   <meta name="description" content="PayGuard is a multi-agent AI buyer for autonomous, policy-guarded agentic commerce.">
   
   <!-- Tailwind CSS CDN -->
@@ -44,29 +43,26 @@
 
   <!-- ==================== HEADER ==================== -->
   <header class="sticky top-0 z-30 bg-[#080908]/90 backdrop-blur-md border-b border-[#20221F] px-4 sm:px-8 py-3.5">
-    <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
       
-      <!-- Brand / Logo -->
+      <!-- Left: Logo & Label -->
       <div class="flex items-center space-x-3">
-        <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-lg bg-[#121311] border border-[#D6A94A]/40 flex items-center justify-center shadow-sm">
-            <span class="font-brand text-xs font-bold text-[#D6A94A] tracking-wider">PG</span>
+        <button id="nav-brand-btn" class="flex items-center space-x-2 text-left group focus:outline-none">
+          <div class="w-7 h-7 rounded-lg bg-[#121311] border border-[#D6A94A]/40 flex items-center justify-center shadow-sm group-hover:border-[#D6A94A] transition">
+            <span class="font-brand text-[11px] font-bold text-[#D6A94A] tracking-wider">PG</span>
           </div>
-          <div class="flex flex-col">
-            <div class="flex items-center space-x-2">
-              <span class="font-brand font-bold text-sm tracking-widest text-[#F4F1E8]">PAYGUARD</span>
-              <span class="text-[9px] font-mono-code uppercase px-1.5 py-0.5 rounded bg-[#D6A94A]/10 text-[#D6A94A] border border-[#D6A94A]/25 tracking-wider">
-                AI BUYER
-              </span>
-            </div>
-            <span class="text-[10px] text-[#98978F] font-mono-code">Autonomous Commerce Engine</span>
+          <div class="flex items-center space-x-2">
+            <span class="font-brand font-bold text-sm tracking-widest text-[#F4F1E8]">PAYGUARD</span>
+            <span class="text-[9px] font-mono-code uppercase px-1.5 py-0.5 rounded bg-[#D6A94A]/10 text-[#D6A94A] border border-[#D6A94A]/25 tracking-wider">
+              AI BUYER
+            </span>
           </div>
-        </div>
+        </button>
       </div>
 
-      <!-- Navigation Tabs -->
-      <nav class="hidden md:flex items-center space-x-1 bg-[#0D0E0D] p-1 rounded-lg border border-[#20221F]">
-        <button id="nav-new-chat-btn" class="px-3 py-1.5 rounded text-xs font-medium text-[#F4F1E8] hover:bg-[#121311] transition flex items-center space-x-1.5">
+      <!-- Center / Secondary Nav -->
+      <nav class="hidden sm:flex items-center space-x-1 bg-[#0D0E0D] p-1 rounded-lg border border-[#20221F]">
+        <button id="nav-new-session-btn" class="px-3 py-1.5 rounded text-xs font-medium text-[#F4F1E8] hover:bg-[#121311] transition flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5 text-[#D6A94A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
@@ -76,7 +72,7 @@
           <svg class="w-3.5 h-3.5 text-[#1688D4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
-          <span>Agent Activity</span>
+          <span>Agent Architecture</span>
         </button>
         <button id="nav-audit-btn" class="px-3 py-1.5 rounded text-xs font-medium text-[#98978F] hover:text-[#F4F1E8] hover:bg-[#121311] transition flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5 text-[#5FAF79]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,13 +88,13 @@
         </button>
       </nav>
 
-      <!-- System Status / Mode -->
+      <!-- Right: Live Status Pill -->
       <div class="flex items-center space-x-2">
         <div id="agent-status-indicator" class="flex items-center bg-[#0D0E0D] px-2.5 py-1 rounded-md border border-[#20221F]">
           <span class="w-2 h-2 rounded-full bg-[#5FAF79] agent-pulse inline-block mr-1.5"></span>
           <span class="text-xs text-[#98978F] font-mono-code uppercase tracking-wider">Agent Online</span>
         </div>
-        <div class="hidden sm:flex items-center bg-[#0D0E0D] px-2.5 py-1 rounded-md border border-[#20221F] text-[10px] font-mono-code text-[#D6A94A]">
+        <div class="hidden md:flex items-center bg-[#0D0E0D] px-2.5 py-1 rounded-md border border-[#20221F] text-[10px] font-mono-code text-[#D6A94A]">
           RAZORPAY TEST MODE
         </div>
       </div>
@@ -106,80 +102,98 @@
     </div>
   </header>
 
-  <!-- ==================== MAIN CONTENT ==================== -->
-  <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 flex flex-col justify-between">
+  <!-- ==================== MAIN WORKSPACE ==================== -->
+  <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-10 flex flex-col justify-between">
     
-    <!-- EMPTY STATE -->
-    <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-center my-auto py-12">
+    <!-- INITIAL CALM WORKSPACE / HERO COMMAND STATE -->
+    <div id="initial-workspace" class="flex-1 flex flex-col items-center justify-center my-auto w-full max-w-2xl mx-auto py-8 animate-fade-in-up">
       
-      <div class="w-12 h-12 rounded-2xl bg-[#121311] border border-[#D6A94A]/30 flex items-center justify-center mb-6 shadow-md">
-        <span class="font-brand text-lg font-bold text-[#D6A94A]">PG</span>
+      <!-- Eyebrow & Refined Heading -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#121311] border border-[#20221F] text-[10px] font-mono-code text-[#D6A94A] tracking-wider uppercase mb-3.5">
+          <span>●</span>
+          <span>AI Purchase Agent</span>
+        </div>
+        
+        <h1 class="font-serif-display text-3xl sm:text-4xl font-normal tracking-tight text-[#F4F1E8] mb-2.5">
+          What can I buy for you?
+        </h1>
+        
+        <p class="text-xs sm:text-sm text-[#98978F] max-w-md mx-auto leading-relaxed">
+          Tell PayGuard what you need. I'll handle the search, verification and payment.
+        </p>
       </div>
 
-      <h1 class="font-serif-display text-3xl sm:text-4xl md:text-5xl font-medium tracking-tight text-[#F4F1E8] mb-4 max-w-2xl leading-tight">
-        Tell PayGuard what you'd like to buy.
-      </h1>
+      <!-- Centered Command Input Box -->
+      <div class="w-full command-box rounded-2xl p-4 sm:p-5">
+        <div class="relative">
+          <textarea 
+            id="hero-input"
+            rows="3"
+            placeholder="Describe what you'd like to buy... (e.g. 'Buy a laptop for coding under ₹80,000')"
+            class="w-full bg-transparent text-sm sm:text-base text-[#F4F1E8] placeholder-[#64635D] focus:outline-none leading-relaxed resize-none"
+            autocomplete="off"
+            spellcheck="false"
+          ></textarea>
+        </div>
 
-      <p class="text-sm sm:text-base text-[#98978F] max-w-lg mb-10 leading-relaxed">
-        Your AI buyer will understand your requirements, find a suitable product, verify the purchase, and safely complete the payment within your intent.
-      </p>
+        <div class="flex items-center justify-between pt-3 mt-2 border-t border-[#20221F]/60 text-xs">
+          <span class="text-[11px] font-mono-code text-[#64635D] hidden sm:inline">
+            Press <kbd class="px-1.5 py-0.5 bg-[#121311] border border-[#20221F] rounded text-[#98978F]">Enter ↵</kbd> to execute · <kbd class="px-1.5 py-0.5 bg-[#121311] border border-[#20221F] rounded text-[#98978F]">Shift + Enter</kbd> for new line
+          </span>
+          <span class="text-[11px] font-mono-code text-[#64635D] sm:hidden">
+            Intent-Locked Execution
+          </span>
 
-      <!-- 3 Prompt Pills -->
-      <div class="w-full max-w-xl space-y-2.5 text-left">
-        <button class="example-prompt-pill prompt-pill w-full px-4 py-3 rounded-xl flex items-center justify-between text-xs sm:text-sm group"
-          data-prompt="Buy me a laptop for coding under 80000, quantity 1">
-          <div class="flex items-center space-x-3">
-            <span class="font-mono-code text-[#D6A94A] text-xs">01</span>
-            <span class="text-[#F4F1E8] font-medium">"Buy a laptop for coding under ₹80,000"</span>
-          </div>
-          <span class="text-[11px] font-mono-code text-[#98978F] group-hover:text-[#D6A94A] transition">Execute →</span>
-        </button>
+          <button 
+            id="hero-send-btn"
+            class="btn-gold px-5 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-1.5 transition ml-auto">
+            <span>EXECUTE</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
 
-        <button class="example-prompt-pill prompt-pill w-full px-4 py-3 rounded-xl flex items-center justify-between text-xs sm:text-sm group"
-          data-prompt="Buy wireless noise cancelling headphones for music under 25000, quantity 1">
-          <div class="flex items-center space-x-3">
-            <span class="font-mono-code text-[#D6A94A] text-xs">02</span>
-            <span class="text-[#F4F1E8] font-medium">"Find wireless headphones under ₹25,000"</span>
-          </div>
-          <span class="text-[11px] font-mono-code text-[#98978F] group-hover:text-[#D6A94A] transition">Execute →</span>
-        </button>
-
-        <button class="example-prompt-pill prompt-pill w-full px-4 py-3 rounded-xl flex items-center justify-between text-xs sm:text-sm group"
-          data-prompt="Buy me a smartphone for daily productivity under 70000, quantity 1">
-          <div class="flex items-center space-x-3">
-            <span class="font-mono-code text-[#D6A94A] text-xs">03</span>
-            <span class="text-[#F4F1E8] font-medium">"Buy one smartphone under ₹70,000"</span>
-          </div>
-          <span class="text-[11px] font-mono-code text-[#98978F] group-hover:text-[#D6A94A] transition">Execute →</span>
-        </button>
+      <div class="flex items-center justify-center space-x-4 mt-6 text-[11px] font-mono-code text-[#64635D]">
+        <span class="flex items-center space-x-1">
+          <span class="text-[#5FAF79]">✓</span>
+          <span>Zero Hallucination Policy Engine</span>
+        </span>
+        <span>·</span>
+        <span class="flex items-center space-x-1">
+          <span class="text-[#5FAF79]">✓</span>
+          <span>Cryptographic Signature Guard</span>
+        </span>
       </div>
 
     </div>
 
-    <!-- CONVERSATION STREAM -->
-    <div id="chat-container" class="hidden flex-1 pb-36">
+    <!-- ACTIVE CONVERSATION / PIPELINE STREAM -->
+    <div id="chat-container" class="hidden flex-1 pb-36 w-full">
       <div id="chat-stream" class="space-y-6">
-        <!-- Messages will be injected here dynamically -->
+        <!-- Messages & Agent Pipeline cards will be injected dynamically -->
       </div>
     </div>
 
   </main>
 
-  <!-- ==================== FIXED BOTTOM INPUT BAR ==================== -->
-  <div class="sticky bottom-0 z-20 bg-gradient-to-t from-[#080908] via-[#080908]/95 to-transparent pt-6 pb-6 px-4">
+  <!-- ==================== FIXED BOTTOM COMMAND BAR (Active Session) ==================== -->
+  <div id="bottom-bar-container" class="hidden fixed bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#080908] via-[#080908]/95 to-transparent pt-6 pb-6 px-4">
     <div class="max-w-3xl mx-auto">
-      <div class="bg-[#0D0E0D] border border-[#20221F] hover:border-[#D6A94A]/30 focus-within:border-[#D6A94A] rounded-2xl p-2 shadow-2xl transition flex items-center space-x-2">
+      <div class="command-box rounded-2xl p-2.5 flex items-center space-x-2">
         <input 
           id="chat-input"
           type="text" 
-          placeholder="Describe your purchase (e.g. 'Buy an OLED laptop for programming under 80000')..."
-          class="flex-1 bg-transparent px-4 py-2.5 text-sm text-[#F4F1E8] placeholder-[#64635D] focus:outline-none"
+          placeholder="Give your AI buyer a new task (e.g. 'Buy wireless headphones under ₹25,000')..."
+          class="flex-1 bg-transparent px-4 py-2 text-sm text-[#F4F1E8] placeholder-[#64635D] focus:outline-none"
           autocomplete="off"
         />
         <button 
           id="send-btn"
-          class="btn-gold px-4 sm:px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
-          <span class="tracking-wider uppercase">Execute</span>
+          class="btn-gold px-5 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-1.5 transition">
+          <span>EXECUTE</span>
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
           </svg>
@@ -187,17 +201,17 @@
       </div>
       <div class="flex items-center justify-between text-[11px] font-mono-code text-[#64635D] px-3 mt-2">
         <span>Autonomous Multi-Agent Purchase Guard</span>
-        <span>Deterministic Policy Intercept Active</span>
+        <span>Deterministic Policy Active</span>
       </div>
     </div>
   </div>
 
-  <!-- ==================== DRAWER: AGENT ACTIVITY ==================== -->
+  <!-- ==================== DRAWER: AGENT ARCHITECTURE ==================== -->
   <div id="activity-drawer" class="fixed inset-y-0 right-0 z-40 w-full sm:w-96 bg-[#0D0E0D] border-l border-[#20221F] transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col">
     <div class="p-5 border-b border-[#20221F] flex items-center justify-between">
       <div class="flex items-center space-x-2">
         <span class="w-2 h-2 rounded-full bg-[#1688D4]"></span>
-        <h3 class="font-serif-display text-base font-semibold text-[#F4F1E8]">Live Agent Architecture</h3>
+        <h3 class="font-serif-display text-base font-semibold text-[#F4F1E8]">Agent Architecture</h3>
       </div>
       <button id="close-activity-btn" class="p-1 rounded hover:bg-[#121311] text-[#98978F] hover:text-[#F4F1E8]">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -217,7 +231,7 @@
       <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
         <div class="font-mono-code text-[11px] text-[#D6A94A] font-semibold mb-1">2. BUYER AGENT</div>
         <p class="text-[#98978F] leading-relaxed">
-          Searches real PostgreSQL merchant catalog, evaluates candidates, calculates exact tax and shipping, and detects intent drift (up to 3 alternative search iterations).
+          Searches real PostgreSQL merchant catalog, calculates exact tax and shipping, and detects intent drift (up to 3 alternative search iterations).
         </p>
       </div>
 
@@ -259,7 +273,7 @@
     </div>
 
     <div class="flex-1 overflow-y-auto p-5" id="audit-timeline">
-      <!-- Audit items will be rendered dynamically -->
+      <!-- Audit records rendered dynamically -->
     </div>
   </div>
 
@@ -276,7 +290,7 @@
       </div>
 
       <div id="policies-content" class="space-y-4">
-        <!-- Policies loaded dynamically -->
+        <!-- Policies loaded dynamically from /api/policies -->
       </div>
     </div>
   </div>

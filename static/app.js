@@ -6,7 +6,6 @@
 class PayGuardApp {
   constructor() {
     this.apiBase = window.location.origin;
-    this.activeSessionId = Date.now();
     this.currentContract = null;
     this.currentProposal = null;
     this.currentVerification = null;
@@ -14,12 +13,15 @@ class PayGuardApp {
     this.isProcessing = false;
 
     this.dom = {
-      emptyState: document.getElementById('empty-state'),
+      initialWorkspace: document.getElementById('initial-workspace'),
+      heroInput: document.getElementById('hero-input'),
+      heroSendBtn: document.getElementById('hero-send-btn'),
+      
       chatContainer: document.getElementById('chat-container'),
       chatStream: document.getElementById('chat-stream'),
+      bottomBarContainer: document.getElementById('bottom-bar-container'),
       chatInput: document.getElementById('chat-input'),
       sendBtn: document.getElementById('send-btn'),
-      examplePills: document.querySelectorAll('.example-prompt-pill'),
       
       // Drawers & Modals
       activityDrawer: document.getElementById('activity-drawer'),
@@ -29,14 +31,15 @@ class PayGuardApp {
       policiesModal: document.getElementById('policies-modal'),
       policiesContent: document.getElementById('policies-content'),
       
-      // Nav buttons
+      // Navigation
+      navBrandBtn: document.getElementById('nav-brand-btn'),
+      navNewSessionBtn: document.getElementById('nav-new-session-btn'),
       openActivityBtn: document.getElementById('nav-activity-btn'),
       openAuditBtn: document.getElementById('nav-audit-btn'),
       openPoliciesBtn: document.getElementById('nav-policies-btn'),
       closeActivityBtn: document.getElementById('close-activity-btn'),
       closeAuditBtn: document.getElementById('close-audit-btn'),
       closePoliciesBtn: document.getElementById('close-policies-btn'),
-      newChatBtn: document.getElementById('nav-new-chat-btn'),
     };
 
     this.init();
@@ -48,27 +51,46 @@ class PayGuardApp {
   }
 
   bindEvents() {
-    // Send message triggers
-    this.dom.sendBtn?.addEventListener('click', () => this.handleUserSubmit());
-    this.dom.chatInput?.addEventListener('keydown', (e) => {
+    // Hero Command Input
+    this.dom.heroSendBtn?.addEventListener('click', () => {
+      const text = this.dom.heroInput?.value.trim();
+      if (text) this.handleUserSubmit(text);
+    });
+
+    this.dom.heroInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        this.handleUserSubmit();
+        const text = this.dom.heroInput?.value.trim();
+        if (text) this.handleUserSubmit(text);
       }
     });
 
-    // Example prompt pill clicks
-    this.dom.examplePills?.forEach((pill) => {
-      pill.addEventListener('click', (e) => {
-        const text = e.currentTarget.getAttribute('data-prompt') || e.currentTarget.innerText.trim();
-        if (this.dom.chatInput) {
-          this.dom.chatInput.value = text.replace(/^"|"$/g, '');
-          this.handleUserSubmit();
-        }
-      });
+    // Auto-resize hero textarea
+    this.dom.heroInput?.addEventListener('input', () => {
+      if (this.dom.heroInput) {
+        this.dom.heroInput.style.height = 'auto';
+        this.dom.heroInput.style.height = `${Math.min(this.dom.heroInput.scrollHeight, 180)}px`;
+      }
+    });
+
+    // Bottom Bar Input (in active conversation)
+    this.dom.sendBtn?.addEventListener('click', () => {
+      const text = this.dom.chatInput?.value.trim();
+      if (text) this.handleUserSubmit(text);
+    });
+
+    this.dom.chatInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = this.dom.chatInput?.value.trim();
+        if (text) this.handleUserSubmit(text);
+      }
     });
 
     // Navigation and Drawers
+    this.dom.navBrandBtn?.addEventListener('click', () => this.resetConversation());
+    this.dom.navNewSessionBtn?.addEventListener('click', () => this.resetConversation());
+
     this.dom.openActivityBtn?.addEventListener('click', () => this.openActivityDrawer());
     this.dom.closeActivityBtn?.addEventListener('click', () => this.closeActivityDrawer());
 
@@ -77,8 +99,6 @@ class PayGuardApp {
 
     this.dom.openPoliciesBtn?.addEventListener('click', () => this.openPoliciesModal());
     this.dom.closePoliciesBtn?.addEventListener('click', () => this.closePoliciesModal());
-
-    this.dom.newChatBtn?.addEventListener('click', () => this.resetConversation());
   }
 
   async checkHealth() {
@@ -105,31 +125,57 @@ class PayGuardApp {
     this.isProcessing = false;
 
     if (this.dom.chatStream) this.dom.chatStream.innerHTML = '';
-    if (this.dom.emptyState) this.dom.emptyState.classList.remove('hidden');
+    if (this.dom.initialWorkspace) this.dom.initialWorkspace.classList.remove('hidden');
     if (this.dom.chatContainer) this.dom.chatContainer.classList.add('hidden');
+    if (this.dom.bottomBarContainer) this.dom.bottomBarContainer.classList.add('hidden');
+    
+    if (this.dom.heroInput) {
+      this.dom.heroInput.value = '';
+      this.dom.heroInput.style.height = 'auto';
+    }
     if (this.dom.chatInput) this.dom.chatInput.value = '';
-    this.updateSendButtonState(false);
+    
+    this.updateProcessingState(false);
   }
 
-  updateSendButtonState(isBusy) {
+  updateProcessingState(isBusy) {
     this.isProcessing = isBusy;
-    if (!this.dom.sendBtn) return;
-    if (isBusy) {
-      this.dom.sendBtn.disabled = true;
-      this.dom.sendBtn.innerHTML = `
-        <svg class="spin-active w-4 h-4 text-[#080908]" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-        </svg>
-      `;
-    } else {
-      this.dom.sendBtn.disabled = false;
-      this.dom.sendBtn.innerHTML = `
-        <span class="text-xs font-semibold uppercase tracking-wider">Execute</span>
-        <svg class="w-3.5 h-3.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-        </svg>
-      `;
+    
+    // Update Hero Send Button
+    if (this.dom.heroSendBtn) {
+      this.dom.heroSendBtn.disabled = isBusy;
+      this.dom.heroSendBtn.innerHTML = isBusy
+        ? `
+          <svg class="spin-active w-3.5 h-3.5 text-[#080908]" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span>PROCESSING</span>
+        `
+        : `
+          <span>EXECUTE</span>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        `;
+    }
+
+    // Update Bottom Bar Send Button
+    if (this.dom.sendBtn) {
+      this.dom.sendBtn.disabled = isBusy;
+      this.dom.sendBtn.innerHTML = isBusy
+        ? `
+          <svg class="spin-active w-3.5 h-3.5 text-[#080908]" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+        `
+        : `
+          <span>EXECUTE</span>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        `;
     }
   }
 
@@ -140,53 +186,53 @@ class PayGuardApp {
     });
   }
 
-  async handleUserSubmit() {
-    if (this.isProcessing) return;
-    const rawText = this.dom.chatInput?.value.trim();
-    if (!rawText) return;
+  async handleUserSubmit(rawText) {
+    if (this.isProcessing || !rawText) return;
 
-    // Transition out of empty state
-    if (this.dom.emptyState) this.dom.emptyState.classList.add('hidden');
+    // Transition from initial workspace to active stream
+    if (this.dom.initialWorkspace) this.dom.initialWorkspace.classList.add('hidden');
     if (this.dom.chatContainer) this.dom.chatContainer.classList.remove('hidden');
+    if (this.dom.bottomBarContainer) this.dom.bottomBarContainer.classList.remove('hidden');
 
-    // Append User Message Bubble
+    if (this.dom.heroInput) this.dom.heroInput.value = '';
+    if (this.dom.chatInput) this.dom.chatInput.value = '';
+
+    // Append User message card
     this.appendUserMessage(rawText);
-    this.dom.chatInput.value = '';
-    this.updateSendButtonState(true);
+    this.updateProcessingState(true);
 
-    // Initial PayGuard Response with Live Pipeline Component
     const pipelineId = `pipeline-${Date.now()}`;
     const agentMsgEl = this.createAgentMessageContainer(pipelineId);
     this.scrollToBottom();
 
     try {
       // Step 1: Intent Extraction Agent
-      this.updatePipelineStep(pipelineId, 'intent', 'active', 'Understanding purchase requirements...');
+      this.updatePipelineStep(pipelineId, 'intent', 'active', 'Analyzing purchase requirements...');
       const intentContract = await this.callIntentAgent(rawText);
       this.currentContract = intentContract;
       this.updatePipelineStep(pipelineId, 'intent', 'done', 'Intent Extracted & Locked');
 
-      // Render Locked Intent Card
+      // Render Intent Locked Card
       this.appendIntentContractCard(agentMsgEl, intentContract);
 
-      // Step 2: Buyer Agent Search & Propose
-      this.updatePipelineStep(pipelineId, 'buyer', 'active', 'Evaluating merchant inventory...');
+      // Step 2: Buyer Agent Candidate Search
+      this.updatePipelineStep(pipelineId, 'buyer', 'active', 'Evaluating merchant catalog...');
       const proposal = await this.callBuyerAgent(intentContract.intent_contract_id);
       this.currentProposal = proposal;
-      this.updatePipelineStep(pipelineId, 'buyer', 'done', `Candidate Selected (${proposal.attempts_count} attempt${proposal.attempts_count > 1 ? 's' : ''})`);
+      this.updatePipelineStep(pipelineId, 'buyer', 'done', `Product Selected (${proposal.attempts_count} attempt${proposal.attempts_count > 1 ? 's' : ''})`);
 
-      // Check for Intent Mismatch / Drift in proposal
+      // Check Intent Drift / Mismatch
       if (proposal.drift_detected) {
         this.appendIntentMismatchCard(agentMsgEl, intentContract, proposal);
-        this.updateSendButtonState(false);
+        this.updateProcessingState(false);
         return;
       }
 
-      // Render Product Proposal Card
+      // Render Proposal Card
       this.appendProposalCard(agentMsgEl, proposal);
 
-      // Step 3: Verification Agent & Policy Engine
-      this.updatePipelineStep(pipelineId, 'verify', 'active', 'Running 5-factor compliance checks...');
+      // Step 3: Verification Agent Checks
+      this.updatePipelineStep(pipelineId, 'verify', 'active', 'Running 5-point verification...');
       const verification = await this.callVerificationAgent(
         intentContract.intent_contract_id,
         proposal.product_id,
@@ -195,23 +241,23 @@ class PayGuardApp {
       this.currentVerification = verification;
       this.updatePipelineStep(pipelineId, 'verify', 'done', 'Verification Complete');
 
-      // Step 4: Policy Engine Evaluation
-      this.updatePipelineStep(pipelineId, 'policy', 'active', 'Evaluating merchant policy limits...');
-      this.updatePipelineStep(pipelineId, 'policy', 'done', `Decision: ${verification.decision}`);
+      // Step 4: Deterministic Policy Engine
+      this.updatePipelineStep(pipelineId, 'policy', 'active', 'Evaluating merchant spending caps...');
+      this.updatePipelineStep(pipelineId, 'policy', 'done', `Policy Decision: ${verification.decision}`);
 
       // Render Policy Decision Block
       this.appendPolicyDecisionBlock(agentMsgEl, intentContract, proposal, verification);
 
     } catch (err) {
-      console.error('Workflow error:', err);
+      console.error('Execution error:', err);
       this.appendErrorBlock(agentMsgEl, err.message || 'An error occurred during agent processing.');
     } finally {
-      this.updateSendButtonState(false);
+      this.updateProcessingState(false);
       this.scrollToBottom();
     }
   }
 
-  // --- API Handlers ---
+  // --- Backend API Calls ---
 
   async callIntentAgent(userPrompt) {
     const res = await fetch(`${this.apiBase}/agent/intent`, {
@@ -292,18 +338,18 @@ class PayGuardApp {
     return await res.json();
   }
 
-  // --- UI Renderers ---
+  // --- Dynamic UI Component Renderers ---
 
   appendUserMessage(text) {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userHtml = `
       <div class="flex justify-end mb-8 animate-fade-in-up">
-        <div class="max-w-2xl">
+        <div class="max-w-xl w-full">
           <div class="flex items-center justify-end space-x-2 mb-1.5">
-            <span class="text-[11px] font-mono-code text-[#98978F] uppercase">You</span>
+            <span class="text-[10px] font-mono-code text-[#98978F] uppercase">Authorized Request</span>
             <span class="text-[10px] font-mono-code text-[#64635D]">${timeStr}</span>
           </div>
-          <div class="bg-[#121311] border border-[#20221F] rounded-xl px-5 py-3.5 text-[#F4F1E8] shadow-sm text-sm leading-relaxed">
+          <div class="bg-[#121311] border border-[#20221F] rounded-2xl px-5 py-3.5 text-[#F4F1E8] shadow-sm text-sm sm:text-base leading-relaxed">
             ${this.escapeHtml(text)}
           </div>
         </div>
@@ -318,7 +364,7 @@ class PayGuardApp {
     const agentHtml = `
       <div id="${containerId}" class="flex flex-col mb-12 animate-fade-in-up">
         <div class="flex items-center space-x-2.5 mb-2.5">
-          <div class="w-6 h-6 rounded bg-[#121311] border border-[#D6A94A]/30 flex items-center justify-center">
+          <div class="w-6 h-6 rounded bg-[#121311] border border-[#D6A94A]/40 flex items-center justify-center">
             <span class="font-brand text-[10px] text-[#D6A94A] font-bold">PG</span>
           </div>
           <span class="text-xs font-semibold text-[#F4F1E8] tracking-wide">PayGuard Autonomous Buyer</span>
@@ -326,25 +372,24 @@ class PayGuardApp {
         </div>
 
         <div class="space-y-4 max-w-3xl">
-          <!-- Intro acknowledgment -->
-          <div class="text-sm text-[#98978F] leading-relaxed">
-            Understood. I will locate the optimal product matching your intent and enforce your authorized budget limit.
+          <div class="text-xs sm:text-sm text-[#98978F] leading-relaxed">
+            Got it. I'll find the best match while staying within your requirements.
           </div>
 
-          <!-- Embedded Activity Pipeline -->
+          <!-- Embedded Real-Time Activity Pipeline -->
           <div id="${pipelineId}" class="card-base rounded-xl p-4 bg-[#0D0E0D]">
             <div class="text-[11px] font-mono-code text-[#98978F] uppercase tracking-wider mb-3 flex items-center justify-between">
-              <span>Autonomous Agent Pipeline</span>
+              <span>Agent Execution Pipeline</span>
               <span class="text-[10px] text-[#1688D4] flex items-center">
-                <span class="w-1.5 h-1.5 rounded-full bg-[#1688D4] animate-ping mr-1"></span> Real-time execution
+                <span class="w-1.5 h-1.5 rounded-full bg-[#1688D4] animate-ping mr-1"></span> Live
               </span>
             </div>
 
-            <div class="space-y-2.5 text-xs">
+            <div class="space-y-2 text-xs">
               <div id="${pipelineId}-intent" class="flex items-center justify-between py-1 border-b border-[#20221F]/60">
                 <div class="flex items-center space-x-2">
                   <span class="font-mono-code text-[11px] text-[#D6A94A]">INTENT AGENT</span>
-                  <span class="text-[#98978F] text-step-desc">Parsing requirements</span>
+                  <span class="text-[#98978F] text-step-desc">Understanding purchase request</span>
                 </div>
                 <span class="step-status text-[#64635D] font-mono-code">○</span>
               </div>
@@ -352,7 +397,7 @@ class PayGuardApp {
               <div id="${pipelineId}-buyer" class="flex items-center justify-between py-1 border-b border-[#20221F]/60">
                 <div class="flex items-center space-x-2">
                   <span class="font-mono-code text-[11px] text-[#D6A94A]">BUYER AGENT</span>
-                  <span class="text-[#98978F] text-step-desc">Searching catalog</span>
+                  <span class="text-[#98978F] text-step-desc">Searching merchant catalog</span>
                 </div>
                 <span class="step-status text-[#64635D] font-mono-code">○</span>
               </div>
@@ -360,7 +405,7 @@ class PayGuardApp {
               <div id="${pipelineId}-verify" class="flex items-center justify-between py-1 border-b border-[#20221F]/60">
                 <div class="flex items-center space-x-2">
                   <span class="font-mono-code text-[11px] text-[#D6A94A]">VERIFICATION AGENT</span>
-                  <span class="text-[#98978F] text-step-desc">Checking compliance</span>
+                  <span class="text-[#98978F] text-step-desc">Checking product requirements</span>
                 </div>
                 <span class="step-status text-[#64635D] font-mono-code">○</span>
               </div>
@@ -368,7 +413,7 @@ class PayGuardApp {
               <div id="${pipelineId}-policy" class="flex items-center justify-between py-1 border-b border-[#20221F]/60">
                 <div class="flex items-center space-x-2">
                   <span class="font-mono-code text-[11px] text-[#D6A94A]">POLICY ENGINE</span>
-                  <span class="text-[#98978F] text-step-desc">Evaluating spending rules</span>
+                  <span class="text-[#98978F] text-step-desc">Evaluating purchase policy</span>
                 </div>
                 <span class="step-status text-[#64635D] font-mono-code">○</span>
               </div>
@@ -376,14 +421,14 @@ class PayGuardApp {
               <div id="${pipelineId}-payment" class="flex items-center justify-between py-1">
                 <div class="flex items-center space-x-2">
                   <span class="font-mono-code text-[11px] text-[#D6A94A]">PAYMENT AGENT</span>
-                  <span class="text-[#98978F] text-step-desc">Awaiting policy clearance</span>
+                  <span class="text-[#98978F] text-step-desc">Waiting for approval</span>
                 </div>
                 <span class="step-status text-[#64635D] font-mono-code">○</span>
               </div>
             </div>
           </div>
 
-          <!-- Container for downstream cards -->
+          <!-- Card Slot for Downstream Components -->
           <div class="card-slot space-y-4"></div>
         </div>
       </div>
@@ -413,9 +458,6 @@ class PayGuardApp {
     } else if (state === 'done') {
       statusEl.innerHTML = `<span class="text-[#5FAF79] font-bold">✓</span>`;
       el.classList.remove('bg-[#1688D4]/5');
-    } else if (state === 'blocked') {
-      statusEl.innerHTML = `<span class="text-[#C96A67] font-bold">⊘</span>`;
-      el.classList.remove('bg-[#1688D4]/5');
     }
   }
 
@@ -430,14 +472,11 @@ class PayGuardApp {
     }).format(intent.max_budget);
 
     const cardHtml = `
-      <div class="card-base rounded-xl p-5 border-l-2 border-l-[#D6A94A] animate-fade-in-up">
+      <div class="card-base rounded-xl p-5 border-l-2 border-l-[#D6A94A] bg-[#0D0E0D] animate-fade-in-up">
         <div class="flex items-center justify-between mb-4 pb-2.5 border-b border-[#20221F]">
-          <div class="flex items-center space-x-2">
-            <span class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded bg-[#D6A94A]/10 text-[#D6A94A] border border-[#D6A94A]/25">
-              Authorized Purchase Contract
-            </span>
-            <span class="text-[11px] font-mono-code text-[#64635D]">#IC-${intent.intent_contract_id}</span>
-          </div>
+          <span class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded bg-[#D6A94A]/10 text-[#D6A94A] border border-[#D6A94A]/25">
+            Authorized Purchase Contract
+          </span>
           <div class="flex items-center space-x-1 text-[#5FAF79] text-xs font-mono-code">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
@@ -461,7 +500,7 @@ class PayGuardApp {
           </div>
           <div>
             <div class="text-[10px] font-mono-code text-[#64635D] uppercase mb-0.5">Quantity / Auth</div>
-            <div class="font-medium text-[#F4F1E8]">${intent.quantity} unit · ${intent.payment_authorized ? '<span class="text-[#5FAF79]">Pre-authorized</span>' : '<span class="text-[#D4A84F]">Manual confirm</span>'}</div>
+            <div class="font-medium text-[#F4F1E8]">${intent.quantity} unit · ${intent.payment_authorized ? '<span class="text-[#5FAF79]">Authorized</span>' : '<span class="text-[#D4A84F]">Confirm req.</span>'}</div>
           </div>
         </div>
       </div>
@@ -480,51 +519,41 @@ class PayGuardApp {
       maximumFractionDigits: 2,
     }).format(proposal.final_amount);
 
-    const formattedBase = new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(proposal.base_price);
+    const formattedBase = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(proposal.base_price);
+    const formattedShipping = proposal.shipping_charge === 0 ? 'FREE' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(proposal.shipping_charge);
+    const formattedTax = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(proposal.tax);
 
-    const formattedShipping = proposal.shipping_charge === 0 
-      ? 'FREE' 
-      : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(proposal.shipping_charge);
-
-    const formattedTax = new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(proposal.tax);
-
-    const alternativeBanner = proposal.alternative_selected
+    const altNotice = proposal.alternative_selected
       ? `
         <div class="mb-3 p-2.5 rounded-lg bg-[#5FAF79]/10 border border-[#5FAF79]/30 text-xs text-[#5FAF79] flex items-center space-x-2">
           <span class="font-bold">✓ COMPLIANT ALTERNATIVE FOUND</span>
-          <span class="text-[#98978F]">(Attempt ${proposal.attempts_count} of 3)</span>
+          <span class="text-[#98978F]">(Evaluated ${proposal.attempts_count} candidate${proposal.attempts_count > 1 ? 's' : ''})</span>
         </div>
       `
       : '';
 
     const cardHtml = `
       <div class="card-base rounded-xl p-5 border border-[#20221F] bg-[#0D0E0D] animate-fade-in-up">
-        ${alternativeBanner}
+        ${altNotice}
 
         <div class="flex items-center justify-between mb-3">
           <span class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded bg-[#1688D4]/10 text-[#1688D4] border border-[#1688D4]/25">
-            Agent Purchase Proposal
+            Agent Proposal
           </span>
           <span class="text-xs font-mono-code text-[#64635D]">Product #${proposal.product_id}</span>
         </div>
 
-        <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-4 border-b border-[#20221F]">
-          <div class="space-y-1 max-w-lg">
-            <h3 class="font-serif-display text-lg sm:text-xl font-semibold text-[#F4F1E8]">
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-[#20221F]">
+          <div class="space-y-1">
+            <h3 class="font-serif-display text-lg sm:text-xl font-medium text-[#F4F1E8]">
               ${this.escapeHtml(proposal.product_name)}
             </h3>
             <p class="text-xs text-[#98978F] leading-relaxed">
-              Selected from verified merchant inventory. Includes all applicable taxes and logistics fulfillment.
+              In-stock inventory from verified merchant catalog. Includes calculated GST tax and standard logistics.
             </p>
           </div>
 
-          <div class="text-left md:text-right bg-[#121311] p-3 rounded-lg border border-[#20221F] min-w-[170px]">
+          <div class="bg-[#121311] p-3 rounded-lg border border-[#20221F] sm:text-right min-w-[160px]">
             <div class="text-[10px] font-mono-code text-[#98978F] uppercase">Final Payable Amount</div>
             <div class="font-mono-code text-xl font-bold text-[#F4F1E8] tracking-tight">
               ${formattedFinal}
@@ -536,14 +565,12 @@ class PayGuardApp {
         </div>
 
         <!-- Why PayGuard Selected This -->
-        <div class="mt-4 pt-1">
-          <div class="text-[10px] font-mono-code text-[#D6A94A] uppercase tracking-wider mb-1 flex items-center space-x-1.5">
-            <svg class="w-3 h-3 text-[#D6A94A]" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-            </svg>
+        <div class="mt-4">
+          <div class="text-[10px] font-mono-code text-[#D6A94A] uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+            <span>●</span>
             <span>Why PayGuard Selected This</span>
           </div>
-          <p class="text-xs text-[#F4F1E8]/90 italic bg-[#121311]/70 p-3 rounded border border-[#20221F] leading-relaxed">
+          <p class="text-xs text-[#F4F1E8]/90 italic bg-[#121311] p-3 rounded-lg border border-[#20221F] leading-relaxed">
             "${this.escapeHtml(proposal.reason)}"
           </p>
         </div>
@@ -557,10 +584,9 @@ class PayGuardApp {
     const slot = containerEl.querySelector('.card-slot');
     if (!slot) return;
 
-    const decision = verification.decision; // APPROVE, ASK_USER, BLOCK
+    const decision = verification.decision;
     const checks = verification.checks || [];
 
-    // Verification check list items
     const checksHtml = checks
       .map(
         (c) => `
@@ -590,16 +616,16 @@ class PayGuardApp {
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2 text-[#5FAF79]">
               <span class="text-base font-bold">✓</span>
-              <span class="font-semibold text-sm tracking-wide">PURCHASE APPROVED BY POLICY</span>
+              <span class="font-semibold text-sm tracking-wide">PURCHASE APPROVED</span>
             </div>
             <span class="text-[11px] font-mono-code text-[#5FAF79] uppercase">Autonomous Clearance</span>
           </div>
           <p class="text-xs text-[#98978F] leading-relaxed">
-            All 5 compliance checks passed. Payment is authorized within your ₹${intent.max_budget.toLocaleString('en-IN')} limit.
+            All required checks passed. Payment authorized within your limit.
           </p>
           <div class="pt-1">
-            <button class="btn-gold w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-semibold tracking-wider flex items-center justify-center space-x-2 continue-pay-btn">
-              <span>CONTINUE TO SECURE PAYMENT (${formattedAmount})</span>
+            <button class="btn-gold w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center justify-center space-x-2 continue-pay-btn">
+              <span>CONTINUE TO PAYMENT (${formattedAmount})</span>
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
               </svg>
@@ -613,21 +639,21 @@ class PayGuardApp {
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2 text-[#D4A84F]">
               <span class="text-base font-bold">🟡</span>
-              <span class="font-semibold text-sm tracking-wide">EXPLICIT CONFIRMATION REQUIRED</span>
+              <span class="font-semibold text-sm tracking-wide">CONFIRMATION REQUIRED</span>
             </div>
-            <span class="text-[11px] font-mono-code text-[#D4A84F] uppercase">High-Value Threshold</span>
+            <span class="text-[11px] font-mono-code text-[#D4A84F] uppercase">Policy Threshold</span>
           </div>
           <p class="text-xs text-[#98978F] leading-relaxed">
             ${this.escapeHtml(verification.reason)}
           </p>
           <div class="flex flex-wrap gap-2.5 pt-1">
-            <button class="btn-gold px-6 py-2.5 rounded-lg text-xs font-semibold tracking-wider flex items-center space-x-2 confirm-approve-btn">
+            <button class="btn-gold px-6 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-2 confirm-approve-btn">
               <span>APPROVE ${formattedAmount}</span>
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
               </svg>
             </button>
-            <button class="btn-secondary px-4 py-2.5 rounded-lg text-xs font-semibold tracking-wider cancel-btn">
+            <button class="btn-secondary px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wider cancel-btn">
               CANCEL
             </button>
           </div>
@@ -640,7 +666,7 @@ class PayGuardApp {
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2 text-[#C96A67]">
               <span class="text-base font-bold">⊘</span>
-              <span class="font-semibold text-sm tracking-wide">PURCHASE BLOCKED BY POLICY</span>
+              <span class="font-semibold text-sm tracking-wide">PURCHASE BLOCKED</span>
             </div>
             <span class="text-[11px] font-mono-code text-[#C96A67] uppercase">Safety Intercept</span>
           </div>
@@ -648,8 +674,8 @@ class PayGuardApp {
             ${this.escapeHtml(verification.reason)}
           </p>
           <div class="pt-1">
-            <button class="btn-secondary px-5 py-2 rounded-lg text-xs font-semibold text-[#D6A94A] border-[#D6A94A]/30 hover:border-[#D6A94A] flex items-center space-x-2 find-alt-btn">
-              <span>FIND COMPLIANT ALTERNATIVE</span>
+            <button class="btn-secondary px-5 py-2.5 rounded-xl text-xs font-semibold text-[#D6A94A] border-[#D6A94A]/30 hover:border-[#D6A94A] flex items-center space-x-2 find-alt-btn">
+              <span>FIND A COMPLIANT ALTERNATIVE</span>
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
               </svg>
@@ -663,10 +689,10 @@ class PayGuardApp {
       <div class="card-base rounded-xl p-5 border border-[#20221F] bg-[#0D0E0D] animate-fade-in-up">
         <div class="flex items-center justify-between mb-3 pb-2 border-b border-[#20221F]">
           <span class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded bg-[#121311] text-[#98978F] border border-[#20221F]">
-            PayGuard Independent Verification
+            PayGuard Checks
           </span>
           <span class="text-xs font-mono-code ${decision === 'APPROVE' ? 'text-[#5FAF79]' : decision === 'ASK_USER' ? 'text-[#D4A84F]' : 'text-[#C96A67]'}">
-            Policy Result: ${decision}
+            Result: ${decision}
           </span>
         </div>
 
@@ -680,7 +706,7 @@ class PayGuardApp {
 
     slot.insertAdjacentHTML('beforeend', verificationCardHtml);
 
-    // Bind action buttons
+    // Bind action events
     const continueBtn = slot.querySelector('.continue-pay-btn');
     if (continueBtn) {
       continueBtn.addEventListener('click', () => {
@@ -738,9 +764,9 @@ class PayGuardApp {
       <div class="card-base rounded-xl p-5 border-l-2 border-l-[#C96A67] bg-[#0D0E0D] animate-fade-in-up">
         <div class="flex items-center justify-between mb-3 pb-2 border-b border-[#20221F]">
           <span class="text-[10px] font-mono-code uppercase px-2 py-0.5 rounded bg-[#C96A67]/10 text-[#C96A67] border border-[#C96A67]/25">
-            Intent Mismatch Intercepted
+            Intent Mismatch Detected
           </span>
-          <span class="text-xs font-mono-code text-[#C96A67]">Autonomous Payment Prevented</span>
+          <span class="text-xs font-mono-code text-[#C96A67]">Autonomous Payment Intercepted</span>
         </div>
 
         <div class="grid grid-cols-3 gap-3 my-4 p-3 bg-[#121311] rounded-lg border border-[#20221F] text-center text-xs">
@@ -749,21 +775,21 @@ class PayGuardApp {
             <div class="font-mono-code text-[#D6A94A] font-semibold">₹${intent.max_budget.toLocaleString('en-IN')} MAX</div>
           </div>
           <div>
-            <div class="text-[10px] font-mono-code text-[#98978F] uppercase">Candidate Proposed</div>
+            <div class="text-[10px] font-mono-code text-[#98978F] uppercase">Proposed</div>
             <div class="font-mono-code text-[#C96A67] font-semibold">₹${proposal.final_amount.toLocaleString('en-IN')}</div>
           </div>
           <div>
-            <div class="text-[10px] font-mono-code text-[#98978F] uppercase">Variance</div>
+            <div class="text-[10px] font-mono-code text-[#98978F] uppercase">Difference</div>
             <div class="font-mono-code text-[#C96A67] font-semibold">+${formattedDiff}</div>
           </div>
         </div>
 
         <p class="text-xs text-[#98978F] leading-relaxed mb-4">
-          PayGuard prevented the Buyer Agent's initial candidate from becoming an unauthorized payment because it exhibited drift from your Intent Contract:
+          PayGuard prevented the AI's decision from becoming an unauthorized payment:
           <span class="text-[#F4F1E8] font-mono-code">${(proposal.drift_reasons || []).join(' · ')}</span>
         </p>
 
-        <button class="btn-gold px-5 py-2.5 rounded-lg text-xs font-semibold tracking-wider flex items-center space-x-2 trigger-alt-search-btn">
+        <button class="btn-gold px-5 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-2 trigger-alt-search-btn">
           <span>FIND COMPLIANT ALTERNATIVE</span>
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
@@ -777,7 +803,7 @@ class PayGuardApp {
     const btn = slot.querySelector('.trigger-alt-search-btn');
     btn?.addEventListener('click', async () => {
       btn.disabled = true;
-      btn.innerText = 'Searching compliant alternatives in PostgreSQL...';
+      btn.innerText = 'Searching compliant alternative...';
       try {
         const altProposal = await this.callBuyerAgent(intent.intent_contract_id);
         this.currentProposal = altProposal;
@@ -791,17 +817,16 @@ class PayGuardApp {
     });
   }
 
-  // --- Real Razorpay Test Mode Checkout Integration ---
+  // --- Real Razorpay Test Mode Checkout ---
 
   async executeRazorpayCheckout(intent, proposal, userConfirmed, slotEl) {
-    // Show Payment Agent processing in slot
     const payStateId = `pay-state-${Date.now()}`;
     const payStateHtml = `
       <div id="${payStateId}" class="card-base rounded-xl p-5 border border-[#1688D4]/30 bg-[#0D0E0D] animate-fade-in-up mt-4">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center space-x-2">
             <span class="w-2 h-2 rounded-full bg-[#1688D4] animate-ping"></span>
-            <span class="text-xs font-mono-code uppercase text-[#1688D4]">Payment Agent Initiating Checkout</span>
+            <span class="text-xs font-mono-code uppercase text-[#1688D4]">Payment Agent Initiating Order</span>
           </div>
           <span class="text-[10px] font-mono-code text-[#D6A94A] bg-[#D6A94A]/10 px-2 py-0.5 rounded border border-[#D6A94A]/20">
             Razorpay Test Mode
@@ -816,7 +841,6 @@ class PayGuardApp {
     const payBox = document.getElementById(payStateId);
 
     try {
-      // 1. Create real Razorpay order via backend
       const orderData = await this.callCreatePayment(
         intent.intent_contract_id,
         proposal.product_id,
@@ -832,12 +856,10 @@ class PayGuardApp {
         `;
       }
 
-      // Check if Razorpay SDK script is loaded
       if (typeof window.Razorpay === 'undefined') {
-        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+        throw new Error('Razorpay SDK failed to load. Please check internet connectivity.');
       }
 
-      // 2. Open standard Razorpay Checkout Modal
       const rzpOptions = {
         key: orderData.razorpay_key_id,
         amount: orderData.amount_in_paise,
@@ -853,7 +875,6 @@ class PayGuardApp {
           color: '#D6A94A',
         },
         handler: async (response) => {
-          // 3. Signature verification with backend
           payBox.innerHTML = `
             <div class="flex items-center space-x-2 text-xs text-[#1688D4]">
               <svg class="spin-active w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -872,7 +893,6 @@ class PayGuardApp {
               response.razorpay_signature
             );
 
-            // Render Payment Success Card
             this.renderPaymentSuccess(payBox, orderData, response, verifyRes);
           } catch (verifErr) {
             this.renderPaymentFailure(payBox, verifErr.message);
@@ -922,10 +942,10 @@ class PayGuardApp {
         </div>
         <div>
           <h4 class="font-serif-display text-lg font-semibold text-[#F4F1E8]">
-            Payment Cryptographically Verified
+            Payment Verified
           </h4>
           <p class="text-xs text-[#5FAF79] font-mono-code uppercase tracking-wider">
-            Transaction Complete · Status: COMPLETED
+            Purchase completed successfully.
           </p>
         </div>
       </div>
@@ -936,7 +956,7 @@ class PayGuardApp {
           <div class="font-mono-code text-sm font-bold text-[#F4F1E8]">${formattedAmount}</div>
         </div>
         <div>
-          <div class="text-[10px] font-mono-code text-[#64635D] uppercase">Transaction Record</div>
+          <div class="text-[10px] font-mono-code text-[#64635D] uppercase">Transaction</div>
           <div class="font-mono-code text-xs text-[#F4F1E8]">#TX-${verifyData.transaction_id}</div>
         </div>
         <div>
@@ -951,11 +971,8 @@ class PayGuardApp {
 
       <div class="flex items-center justify-between text-xs pt-1">
         <span class="text-[#98978F]">Purchase safely fulfilled within your Intent Contract.</span>
-        <button class="btn-gold px-5 py-2 rounded-lg text-xs font-semibold tracking-wider flex items-center space-x-1.5 restart-agent-btn">
-          <span>NEW PURCHASE TASK</span>
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
+        <button class="btn-gold px-5 py-2 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-1.5 restart-agent-btn">
+          <span>DONE</span>
         </button>
       </div>
     `;
@@ -988,13 +1005,13 @@ class PayGuardApp {
       'beforeend',
       `
       <div class="p-4 rounded-xl bg-[#C96A67]/10 border border-[#C96A67]/30 text-xs text-[#C96A67] animate-fade-in-up">
-        <span class="font-bold">Workflow Interrupted:</span> ${this.escapeHtml(msg)}
+        <span class="font-bold">Execution Error:</span> ${this.escapeHtml(msg)}
       </div>
     `
     );
   }
 
-  // --- Drawers & Modal Handlers ---
+  // --- Drawers & Modals ---
 
   async openAuditDrawer() {
     if (!this.dom.auditDrawer || !this.dom.auditTimeline) return;
@@ -1006,7 +1023,7 @@ class PayGuardApp {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
-        <span>Loading immutable audit records from PostgreSQL...</span>
+        <span>Loading PostgreSQL audit logs...</span>
       </div>
     `;
 
@@ -1016,7 +1033,7 @@ class PayGuardApp {
 
       if (!logs || logs.length === 0) {
         this.dom.auditTimeline.innerHTML = `
-          <div class="p-6 text-center text-xs text-[#64635D]">No audit records found.</div>
+          <div class="p-6 text-center text-xs text-[#64635D]">No audit records logged yet.</div>
         `;
         return;
       }
@@ -1053,7 +1070,7 @@ class PayGuardApp {
     } catch (err) {
       this.dom.auditTimeline.innerHTML = `
         <div class="p-4 bg-[#C96A67]/10 text-xs text-[#C96A67] rounded-lg">
-          Failed to retrieve audit trail: ${err.message}
+          Failed to load audit trail: ${err.message}
         </div>
       `;
     }
@@ -1083,13 +1100,13 @@ class PayGuardApp {
           <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
             <div class="text-[10px] font-mono-code text-[#98978F] uppercase mb-1">Max Transaction Limit</div>
             <div class="font-mono-code text-lg font-bold text-[#F4F1E8]">₹${policy.max_transaction_amount.toLocaleString('en-IN')}</div>
-            <div class="text-[10px] text-[#64635D] mt-1">Autonomous hard cap per transaction</div>
+            <div class="text-[10px] text-[#64635D] mt-1">Autonomous hard limit</div>
           </div>
 
           <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
             <div class="text-[10px] font-mono-code text-[#98978F] uppercase mb-1">High-Value Threshold</div>
             <div class="font-mono-code text-lg font-bold text-[#D4A84F]">₹${policy.high_value_threshold.toLocaleString('en-IN')}</div>
-            <div class="text-[10px] text-[#64635D] mt-1">Requires explicit user confirmation</div>
+            <div class="text-[10px] text-[#64635D] mt-1">Requires user approval</div>
           </div>
 
           <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
@@ -1101,7 +1118,7 @@ class PayGuardApp {
           <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
             <div class="text-[10px] font-mono-code text-[#98978F] uppercase mb-1">Duplicate Purchase Block</div>
             <div class="font-mono-code text-lg font-bold text-[#5FAF79]">${policy.duplicate_purchase_block ? 'ENABLED' : 'DISABLED'}</div>
-            <div class="text-[10px] text-[#64635D] mt-1">Prevents accidental double orders</div>
+            <div class="text-[10px] text-[#64635D] mt-1">Prevents double charges</div>
           </div>
         </div>
       `;
@@ -1125,7 +1142,6 @@ class PayGuardApp {
   }
 }
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   window.payguard = new PayGuardApp();
 });
