@@ -1,6 +1,13 @@
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 import uvicorn
+from dotenv import load_dotenv
+
+# Ensure .env is explicitly loaded from project root
+PROJECT_ROOT = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env", override=True)
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import engine, Base, check_db_connection, get_db

@@ -322,8 +322,8 @@ class PaymentOrderResponse(BaseModel):
         json_schema_extra={
             "example": {
                 "transaction_id": 1,
-                "razorpay_order_id": "order_OPsXzAbc12345",
-                "razorpay_key_id": "rzp_test_your_key_id",
+                "razorpay_order_id": "order_TY4GJflFcXR9IP",
+                "razorpay_key_id": "rzp_test_...",
                 "amount": 71038.2,
                 "amount_in_paise": 7103820,
                 "currency": "INR",
