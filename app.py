@@ -5,7 +5,13 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import engine, Base, check_db_connection, get_db
 import models  # Ensure all SQLAlchemy models are registered
-from schemas import HealthResponse, IntentContract, PurchaseIntentRequest, BuyRequest, PurchaseProposal
+from schemas import (
+    HealthResponse,
+    PurchaseIntentRequest,
+    IntentContractResponse,
+    BuyRequest,
+    PurchaseProposal,
+)
 from agents.intent_agent import intent_agent, IntentExtractionError
 from agents.buyer_agent import (
     buyer_agent,
@@ -61,35 +67,43 @@ def health_check():
     return {"status": "error", "database": "disconnected"}
 
 
-@app.post("/agent/intent", response_model=IntentContract, status_code=status.HTTP_201_CREATED)
+@app.post("/agent/intent", response_model=IntentContractResponse, status_code=status.HTTP_201_CREATED)
 def extract_purchase_intent(
     payload: PurchaseIntentRequest,
     db: Session = Depends(get_db),
 ):
     """Intent Extraction Agent endpoint.
 
-    Extracts structured purchase intent from natural language requests,
-    persists the IntentContract to PostgreSQL, and records audit logs.
+    Receives the real user purchase request, extracts intent via Groq LLM,
+    persists the IntentContract to PostgreSQL, and returns the real generated database ID.
     """
     try:
-        # 1. Extract intent using Groq LLM through IntentAgent
-        contract = intent_agent.extract_intent(payload.request)
+        # 1. Extract real intent from user request using Groq LLM
+        extracted = intent_agent.extract_intent(payload.request)
 
-        # 2. Save the extracted IntentContract in PostgreSQL intent_contracts table
+        # 2. Save the real extracted IntentContract in PostgreSQL intent_contracts table
         db_intent = models.IntentContract(
             raw_request=payload.request,
-            product_type=contract.product_type,
-            purpose=contract.purpose,
-            max_budget=contract.max_budget,
-            quantity=contract.quantity,
-            payment_authorized=contract.payment_authorized,
+            product_type=extracted.product_type,
+            purpose=extracted.purpose,
+            max_budget=extracted.max_budget,
+            quantity=extracted.quantity,
+            payment_authorized=extracted.payment_authorized,
         )
         db.add(db_intent)
         db.commit()
         db.refresh(db_intent)
 
-        # 3. Assign database ID to response contract
-        contract.intent_contract_id = db_intent.id
+        # 3. Construct response with the ACTUAL generated PostgreSQL ID
+        response = IntentContractResponse(
+            intent_contract_id=db_intent.id,
+            product_type=extracted.product_type,
+            purpose=extracted.purpose,
+            max_budget=extracted.max_budget,
+            quantity=extracted.quantity,
+            preferences=extracted.preferences,
+            payment_authorized=extracted.payment_authorized,
+        )
 
         # 4. Record successful audit log
         audit_service.log(
@@ -97,10 +111,10 @@ def extract_purchase_intent(
             agent="Intent Agent",
             action="Intent extraction",
             decision="SUCCESS",
-            reason=f"Saved IntentContract #{db_intent.id} for '{contract.product_type}' with budget INR {contract.max_budget:.2f}",
+            reason=f"Saved IntentContract #{db_intent.id} for '{response.product_type}' with budget INR {response.max_budget:.2f}",
         )
 
-        return contract
+        return response
 
     except IntentExtractionError as e:
         # Log failure to audit logs
