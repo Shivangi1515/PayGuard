@@ -8,6 +8,10 @@ class HealthResponse(BaseModel):
 
 
 class IntentContract(BaseModel):
+    intent_contract_id: Optional[int] = Field(
+        default=None,
+        description="Generated PostgreSQL database ID for the IntentContract",
+    )
     product_type: str = Field(
         ...,
         min_length=1,
