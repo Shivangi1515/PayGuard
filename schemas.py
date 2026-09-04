@@ -155,6 +155,30 @@ class BuyRequest(BaseModel):
     )
 
 
+class DriftCheck(BaseModel):
+    drift_type: str = Field(..., description="Type of drift detected (e.g. budget drift, quantity drift, preference drift)")
+    detected: bool = Field(..., description="True if this specific drift is present")
+    explanation: str = Field(..., description="Explanation of the drift check outcome")
+
+
+class DriftReport(BaseModel):
+    has_drift: bool = Field(..., description="True if any drift was detected")
+    drift_types: List[str] = Field(default_factory=list, description="List of detected drift types")
+    explanations: List[str] = Field(default_factory=list, description="List of drift descriptions")
+    summary: str = Field(..., description="Summary of drift analysis")
+    checks: List[DriftCheck] = Field(default_factory=list, description="Individual drift checks")
+
+
+class AlternativeAttempt(BaseModel):
+    attempt_number: int = Field(..., description="Attempt number (1 to 3)")
+    product_id: int = Field(..., description="Candidate product ID")
+    product_name: str = Field(..., description="Candidate product name")
+    final_amount: float = Field(..., description="Candidate final calculated amount in INR")
+    drift_detected: bool = Field(..., description="Whether this candidate exhibited drift")
+    drift_types: List[str] = Field(default_factory=list, description="Types of drift detected if any")
+    rejected_reason: Optional[str] = Field(default=None, description="Reason for rejection if candidate drifted")
+
+
 class PurchaseProposal(BaseModel):
     product_id: int = Field(..., description="ID of the selected product")
     product_name: str = Field(..., description="Name of the selected product")
@@ -164,6 +188,11 @@ class PurchaseProposal(BaseModel):
     tax: float = Field(..., description="Applicable tax in INR")
     final_amount: float = Field(..., description="Final calculated amount (base_price + shipping + tax)")
     reason: str = Field(..., description="Explanation from Buyer Agent why this candidate was selected")
+    drift_detected: bool = Field(default=False, description="Whether the selected proposal has drift")
+    drift_reasons: List[str] = Field(default_factory=list, description="Detected drift reasons if any")
+    attempts_count: int = Field(default=1, description="Total candidate search attempts made (up to 3)")
+    alternative_selected: bool = Field(default=False, description="True if an alternative was chosen after initial drift")
+    attempts_history: List[AlternativeAttempt] = Field(default_factory=list, description="Audit trail of candidate attempts")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -175,7 +204,22 @@ class PurchaseProposal(BaseModel):
                 "shipping_charge": 250.0,
                 "tax": 10798.2,
                 "final_amount": 71038.2,
-                "reason": "Acer Swift Go 14 is the optimal laptop for coding under 80000 INR with 16GB RAM and OLED display."
+                "reason": "Acer Swift Go 14 is the optimal laptop for coding under 80000 INR with 16GB RAM and OLED display.",
+                "drift_detected": False,
+                "drift_reasons": [],
+                "attempts_count": 1,
+                "alternative_selected": False,
+                "attempts_history": [
+                    {
+                        "attempt_number": 1,
+                        "product_id": 6,
+                        "product_name": "Acer Swift Go 14",
+                        "final_amount": 71038.2,
+                        "drift_detected": False,
+                        "drift_types": [],
+                        "rejected_reason": None
+                    }
+                ]
             }
         }
     )
