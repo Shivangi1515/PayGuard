@@ -10,7 +10,7 @@ logger = logging.getLogger("payguard.policy_engine")
 
 # Fallback default merchant policy in case none is seeded in DB
 DEFAULT_MAX_TX = 100000.0
-DEFAULT_HIGH_VAL = 50000.0
+DEFAULT_HIGH_VAL = 80000.0
 DEFAULT_DUP_BLOCK = True
 
 

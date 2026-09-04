@@ -155,7 +155,7 @@ PRODUCTS_DATA = [
 
 DEFAULT_MERCHANT_POLICY = {
     "max_transaction_amount": 100000.0,
-    "high_value_threshold": 50000.0,
+    "high_value_threshold": 80000.0,
     "max_automated_retries": 2,
     "duplicate_purchase_block": True,
 }

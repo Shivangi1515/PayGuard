@@ -137,7 +137,7 @@ def get_merchant_policies(db: Session = Depends(get_db)):
     if not policy:
         return {
             "max_transaction_amount": 100000.0,
-            "high_value_threshold": 50000.0,
+            "high_value_threshold": 80000.0,
             "max_automated_retries": 3,
             "duplicate_purchase_block": True,
         }
