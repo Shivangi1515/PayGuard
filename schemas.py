@@ -8,18 +8,14 @@ class HealthResponse(BaseModel):
 
 
 class IntentContract(BaseModel):
-    raw_request: Optional[str] = Field(
-        default=None,
-        description="Original user natural language purchase request"
-    )
     product_type: str = Field(
         ...,
         min_length=1,
         description="Target category or product type (e.g., 'Laptop', 'Smartphone', 'Headphones')",
     )
     purpose: str = Field(
-        default="General Purchase",
-        description="Intended usage/purpose extracted from the request (e.g., 'Coding', 'Gaming', 'Travel')",
+        default="general purchase",
+        description="Intended usage/purpose extracted from the request (e.g., 'coding', 'gaming', 'office')",
     )
     max_budget: float = Field(
         ...,
@@ -33,11 +29,11 @@ class IntentContract(BaseModel):
     )
     preferences: List[str] = Field(
         default_factory=list,
-        description="List of specific feature preferences (e.g., ['16GB RAM', 'Active Noise Cancellation'])",
+        description="List of specific feature preferences",
     )
     payment_authorized: bool = Field(
         default=False,
-        description="Indicates whether the user explicitly stated payment authorization intent in their request. NOTE: LLM does not grant financial authorization.",
+        description="Indicates whether the user explicitly intended payment authorization in their request",
     )
 
     @field_validator("max_budget", mode="before")
@@ -48,8 +44,14 @@ class IntentContract(BaseModel):
                 raise ValueError("max_budget must be greater than 0.")
             return float(v)
         if isinstance(v, str):
-            # Clean possible currency symbols or commas e.g. "₹1,50,000" or "150000 INR"
-            cleaned = v.replace("₹", "").replace("INR", "").replace("Rs", "").replace("rs", "").replace(",", "").strip()
+            cleaned = (
+                v.replace("₹", "")
+                .replace("INR", "")
+                .replace("Rs", "")
+                .replace("rs", "")
+                .replace(",", "")
+                .strip()
+            )
             try:
                 val = float(cleaned)
                 if val <= 0:
@@ -74,7 +76,7 @@ class IntentContract(BaseModel):
 class PurchaseIntentRequest(BaseModel):
     request: str = Field(
         ...,
-        min_length=3,
+        min_length=1,
         description="Natural language purchase request",
-        example="I need a high-performance laptop for coding and video editing under 150000 rupees. Need at least 16GB RAM.",
+        example="Buy me a laptop for coding under 80000, quantity 1",
     )
