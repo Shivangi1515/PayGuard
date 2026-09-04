@@ -288,3 +288,89 @@ class VerificationResponse(BaseModel):
         }
     )
 
+
+class CreatePaymentRequest(BaseModel):
+    intent_contract_id: int = Field(..., gt=0, description="ID of IntentContract from PostgreSQL")
+    product_id: int = Field(..., gt=0, description="ID of Product to purchase")
+    quantity: int = Field(default=1, ge=1, description="Quantity proposed for purchase")
+    user_confirmed: bool = Field(default=False, description="Set true if user has confirmed high-value transaction")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "intent_contract_id": 1,
+                "product_id": 6,
+                "quantity": 1,
+                "user_confirmed": False
+            }
+        }
+    )
+
+
+class PaymentOrderResponse(BaseModel):
+    transaction_id: int = Field(..., description="Internal PostgreSQL transaction record ID")
+    razorpay_order_id: str = Field(..., description="Razorpay order ID (e.g. order_OPsXz...)")
+    razorpay_key_id: str = Field(..., description="Public Razorpay key ID for client-side checkout")
+    amount: float = Field(..., description="Validated total amount in INR")
+    amount_in_paise: int = Field(..., description="Total amount in smallest currency sub-unit (paise)")
+    currency: str = Field(default="INR", description="Currency code")
+    status: str = Field(..., description="Transaction status (e.g. ORDER_CREATED)")
+    policy_decision: str = Field(..., description="Policy Engine evaluation decision (e.g. APPROVE)")
+    policy_reason: str = Field(..., description="Policy Engine rationale")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "transaction_id": 1,
+                "razorpay_order_id": "order_OPsXzAbc12345",
+                "razorpay_key_id": "rzp_test_your_key_id",
+                "amount": 71038.2,
+                "amount_in_paise": 7103820,
+                "currency": "INR",
+                "status": "ORDER_CREATED",
+                "policy_decision": "APPROVE",
+                "policy_reason": "All verification checks passed, payment is authorized, and transaction amount is within budget and policy limits."
+            }
+        }
+    )
+
+
+class VerifyPaymentRequest(BaseModel):
+    transaction_id: int = Field(..., gt=0, description="Internal transaction record ID")
+    razorpay_order_id: str = Field(..., description="Razorpay order ID returned during order creation")
+    razorpay_payment_id: str = Field(..., description="Razorpay payment ID received after payment attempt")
+    razorpay_signature: str = Field(..., description="Cryptographic HMAC SHA256 signature from Razorpay")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "transaction_id": 1,
+                "razorpay_order_id": "order_OPsXzAbc12345",
+                "razorpay_payment_id": "pay_OPsYwDef67890",
+                "razorpay_signature": "9ef5426da7d673f8a42f5c7de0b35b..."
+            }
+        }
+    )
+
+
+class PaymentVerificationResponse(BaseModel):
+    transaction_id: int = Field(..., description="Internal PostgreSQL transaction record ID")
+    status: str = Field(..., description="Final transaction status: 'COMPLETED' or 'FAILED'")
+    verified: bool = Field(..., description="True if signature was cryptographically verified")
+    razorpay_order_id: str = Field(..., description="Razorpay order ID")
+    razorpay_payment_id: Optional[str] = Field(default=None, description="Razorpay payment ID")
+    message: str = Field(..., description="Verification summary explanation")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "transaction_id": 1,
+                "status": "COMPLETED",
+                "verified": True,
+                "razorpay_order_id": "order_OPsXzAbc12345",
+                "razorpay_payment_id": "pay_OPsYwDef67890",
+                "message": "Payment verified and transaction completed successfully."
+            }
+        }
+    )
+

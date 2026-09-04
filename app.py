@@ -13,6 +13,10 @@ from schemas import (
     PurchaseProposal,
     VerifyRequest,
     VerificationResponse,
+    CreatePaymentRequest,
+    PaymentOrderResponse,
+    VerifyPaymentRequest,
+    PaymentVerificationResponse,
 )
 from agents.intent_agent import intent_agent, IntentExtractionError
 from agents.buyer_agent import (
@@ -22,6 +26,12 @@ from agents.buyer_agent import (
     NoMatchingProductError,
 )
 from agents.verification_agent import verification_agent
+from agents.payment_agent import (
+    payment_agent,
+    PaymentAgentError,
+    PolicyBlockedError,
+    UserConfirmationRequiredError,
+)
 from services.policy_engine import policy_engine
 from services.audit_service import audit_service
 
@@ -239,7 +249,89 @@ def verify_purchase_proposal(
     return response
 
 
+@app.post("/agent/payment/create", response_model=PaymentOrderResponse, status_code=status.HTTP_201_CREATED)
+def create_payment_order(
+    payload: CreatePaymentRequest,
+    db: Session = Depends(get_db),
+):
+    """Payment Agent endpoint - Razorpay Test Mode Order Creation.
+
+    Enforces deterministic policy rules:
+    - APPROVE: Automatically creates a Razorpay test order using validated final amount.
+    - ASK_USER: Returns 403 / requires explicit user_confirmed=True.
+    - BLOCK: Strictly forbidden from creating payment orders (returns 400).
+
+    Returns Razorpay order ID and public key (never exposes key secret).
+    """
+    try:
+        order_response = payment_agent.initiate_payment(
+            db=db,
+            intent_contract_id=payload.intent_contract_id,
+            product_id=payload.product_id,
+            quantity=payload.quantity,
+            user_confirmed=payload.user_confirmed,
+        )
+        return order_response
+
+    except PolicyBlockedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except UserConfirmationRequiredError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except PaymentAgentError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in /agent/payment/create: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the payment order.",
+        )
+
+
+@app.post("/agent/payment/verify", response_model=PaymentVerificationResponse)
+def verify_payment_signature(
+    payload: VerifyPaymentRequest,
+    db: Session = Depends(get_db),
+):
+    """Payment Agent endpoint - Razorpay Cryptographic Signature Verification.
+
+    Verifies the authentic HMAC SHA256 payment signature from Razorpay.
+    Updates the transaction status to COMPLETED (if valid) or FAILED (if invalid),
+    and records immutable audit logs.
+    """
+    try:
+        verification_response = payment_agent.verify_payment(
+            db=db,
+            transaction_id=payload.transaction_id,
+            razorpay_order_id=payload.razorpay_order_id,
+            razorpay_payment_id=payload.razorpay_payment_id,
+            razorpay_signature=payload.razorpay_signature,
+        )
+        return verification_response
+
+    except PaymentAgentError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in /agent/payment/verify: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while verifying the payment signature.",
+        )
+
+
 if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+
 
 
