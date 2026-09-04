@@ -1,34 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=DM+Serif+Display:ital@0;1&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
 
 :root {
   --bg-base: #080908;
-  --surface-secondary: #0D0E0D;
-  --surface-elevated: #121311;
-  --border-subtle: #20221F;
-  --border-hover: #2C2F2B;
+  --surface-primary: #0C0D0C;
+  --surface-secondary: #111210;
+  --border-subtle: #22231F;
+  --border-hover: #2E302A;
   
-  --text-primary: #F4F1E8;
-  --text-secondary: #98978F;
+  --text-primary: #F3F0E8;
+  --text-secondary: #9A9991;
   --text-muted: #64635D;
   
   --accent-gold: #D6A94A;
   --accent-gold-hover: #E2B95C;
-  --accent-gold-subtle: rgba(214, 169, 74, 0.10);
-  --accent-gold-border: rgba(214, 169, 74, 0.25);
+  --accent-gold-subtle: rgba(214, 169, 74, 0.08);
+  --accent-gold-border: rgba(214, 169, 74, 0.22);
   
   --accent-blue: #1688D4;
-  --accent-blue-subtle: rgba(22, 136, 212, 0.12);
+  --accent-blue-subtle: rgba(22, 136, 212, 0.10);
+  --accent-blue-border: rgba(22, 136, 212, 0.25);
   
-  --status-success: #5FAF79;
-  --status-success-subtle: rgba(95, 175, 121, 0.12);
-  --status-warning: #D4A84F;
-  --status-warning-subtle: rgba(212, 168, 79, 0.12);
+  --status-success: #62AA78;
+  --status-success-subtle: rgba(98, 170, 120, 0.10);
+  --status-warning: #CFA64D;
+  --status-warning-subtle: rgba(207, 166, 77, 0.10);
   --status-danger: #C96A67;
-  --status-danger-subtle: rgba(201, 106, 103, 0.12);
+  --status-danger-subtle: rgba(201, 106, 103, 0.10);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -39,14 +44,19 @@ body {
   margin: 0;
   padding: 0;
   background-image: 
-    radial-gradient(var(--border-subtle) 0.75px, transparent 0.75px);
-  background-size: 28px 28px;
+    radial-gradient(var(--border-subtle) 0.65px, transparent 0.65px);
+  background-size: 32px 32px;
   background-position: center center;
   overflow-x: hidden;
 }
 
+/* Typography Classes */
+.font-editorial {
+  font-family: 'Instrument Serif', 'DM Serif Display', 'Newsreader', Georgia, serif;
+}
+
 .font-serif-display {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: 'DM Serif Display', Georgia, serif;
 }
 
 .font-brand {
@@ -69,89 +79,43 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-subtle);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
 
-/* Surface Cards */
-.card-base {
-  background-color: var(--surface-secondary);
+/* Cards & Surfaces */
+.surface-card {
+  background-color: var(--surface-primary);
   border: 1px solid var(--border-subtle);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.card-base:hover {
+.surface-card:hover {
   border-color: var(--border-hover);
 }
 
-.card-elevated {
-  background-color: var(--surface-elevated);
-  border: 1px solid var(--border-subtle);
-}
-
-/* Command Box Input Container */
-.command-box {
+.surface-card-elevated {
   background-color: var(--surface-secondary);
   border: 1px solid var(--border-subtle);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.command-box:focus-within {
+/* Command Box Container */
+.command-container {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.7);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.command-container:focus-within {
   border-color: var(--accent-gold-border);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--accent-gold-border);
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--accent-gold-border);
 }
 
-/* Pulsing Agent Node */
-@keyframes pulse-subtle {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.55;
-    transform: scale(0.92);
-  }
-}
-
-.agent-pulse {
-  animation: pulse-subtle 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Spinner */
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.spin-active {
-  animation: spin-slow 1.2s linear infinite;
-}
-
-/* Fade In Up */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Button Primary (Champagne Gold) */
+/* Gold Accent Buttons */
 .btn-gold {
   background-color: var(--accent-gold);
   color: #080908;
@@ -163,7 +127,7 @@ body {
 .btn-gold:hover:not(:disabled) {
   background-color: var(--accent-gold-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(214, 169, 74, 0.22);
+  box-shadow: 0 6px 20px rgba(214, 169, 74, 0.25);
 }
 
 .btn-gold:active:not(:disabled) {
@@ -171,25 +135,79 @@ body {
 }
 
 .btn-gold:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-/* Button Secondary (Dark Surface) */
-.btn-secondary {
-  background-color: var(--surface-elevated);
+/* Outline Secondary Button */
+.btn-outline {
+  background-color: transparent;
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   transition: all 0.18s ease;
 }
 
-.btn-secondary:hover {
-  background-color: #1A1C19;
+.btn-outline:hover {
+  background-color: var(--surface-secondary);
   border-color: var(--border-hover);
   color: #FFFFFF;
 }
 
-/* Textarea Auto-expand */
-textarea {
-  resize: none;
+/* Animation utilities */
+@keyframes pulseSubtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+}
+
+.agent-live-pulse {
+  animation: pulseSubtle 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-active {
+  animation: spinSlow 1.2s linear infinite;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Network Node Animation in Hero */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.network-flow-line {
+  stroke-dasharray: 4, 8;
+  animation: dash 3.5s linear infinite;
+}
+
+/* Text glow / emphasis */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #F3F0E8 0%, #D6A94A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }

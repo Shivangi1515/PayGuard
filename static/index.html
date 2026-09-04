@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PayGuard — The AI Agent That Pays Within Your Intent</title>
   
-  <meta name="description" content="PayGuard is a multi-agent AI buyer for autonomous, policy-guarded agentic commerce.">
+  <meta name="description" content="PayGuard is an autonomous multi-agent AI buyer for verified, policy-guarded agentic commerce.">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -16,16 +16,17 @@
         extend: {
           colors: {
             bgBase: '#080908',
-            surfaceSec: '#0D0E0D',
-            surfaceElev: '#121311',
-            borderSubtle: '#20221F',
-            textPrimary: '#F4F1E8',
-            textSecondary: '#98978F',
+            surfacePrim: '#0C0D0C',
+            surfaceSec: '#111210',
+            borderSubtle: '#22231F',
+            borderHover: '#2E302A',
+            textPrimary: '#F3F0E8',
+            textSecondary: '#9A9991',
             gold: '#D6A94A',
             goldHover: '#E2B95C',
             aiBlue: '#1688D4',
-            successGreen: '#5FAF79',
-            warnYellow: '#D4A84F',
+            successGreen: '#62AA78',
+            warnYellow: '#CFA64D',
             blockRed: '#C96A67',
           }
         }
@@ -39,107 +40,246 @@
   <!-- Custom App Styles -->
   <link rel="stylesheet" href="/static/app.css">
 </head>
-<body class="bg-[#080908] text-[#F4F1E8] antialiased flex flex-col min-h-screen">
+<body class="bg-[#080908] text-[#F3F0E8] antialiased flex flex-col min-h-screen">
 
   <!-- ==================== HEADER ==================== -->
-  <header class="sticky top-0 z-30 bg-[#080908]/90 backdrop-blur-md border-b border-[#20221F] px-4 sm:px-8 py-3.5">
-    <div class="max-w-5xl mx-auto flex items-center justify-between">
+  <header class="sticky top-0 z-40 bg-[#080908]/90 backdrop-blur-md border-b border-[#22231F] px-4 sm:px-8 py-3.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
       
       <!-- Left: Logo & Label -->
       <div class="flex items-center space-x-3">
-        <button id="nav-brand-btn" class="flex items-center space-x-2 text-left group focus:outline-none">
-          <div class="w-7 h-7 rounded-lg bg-[#121311] border border-[#D6A94A]/40 flex items-center justify-center shadow-sm group-hover:border-[#D6A94A] transition">
+        <a href="/" class="flex items-center space-x-2.5 text-left group focus:outline-none">
+          <div class="w-7 h-7 rounded-lg bg-[#0C0D0C] border border-[#D6A94A]/40 flex items-center justify-center shadow-sm group-hover:border-[#D6A94A] transition">
             <span class="font-brand text-[11px] font-bold text-[#D6A94A] tracking-wider">PG</span>
           </div>
           <div class="flex items-center space-x-2">
-            <span class="font-brand font-bold text-sm tracking-widest text-[#F4F1E8]">PAYGUARD</span>
+            <span class="font-brand font-bold text-sm tracking-widest text-[#F3F0E8]">PAYGUARD</span>
             <span class="text-[9px] font-mono-code uppercase px-1.5 py-0.5 rounded bg-[#D6A94A]/10 text-[#D6A94A] border border-[#D6A94A]/25 tracking-wider">
               AI BUYER
             </span>
           </div>
-        </button>
+        </a>
       </div>
 
-      <!-- Center / Secondary Nav -->
-      <nav class="hidden sm:flex items-center space-x-1 bg-[#0D0E0D] p-1 rounded-lg border border-[#20221F]">
-        <button id="nav-new-session-btn" class="px-3 py-1.5 rounded text-xs font-medium text-[#F4F1E8] hover:bg-[#121311] transition flex items-center space-x-1.5">
-          <svg class="w-3.5 h-3.5 text-[#D6A94A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          <span>New Session</span>
-        </button>
-        <button id="nav-activity-btn" class="px-3 py-1.5 rounded text-xs font-medium text-[#98978F] hover:text-[#F4F1E8] hover:bg-[#121311] transition flex items-center space-x-1.5">
-          <svg class="w-3.5 h-3.5 text-[#1688D4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-          </svg>
-          <span>Agent Architecture</span>
-        </button>
-        <button id="nav-audit-btn" class="px-3 py-1.5 rounded text-xs font-medium text-[#98978F] hover:text-[#F4F1E8] hover:bg-[#121311] transition flex items-center space-x-1.5">
-          <svg class="w-3.5 h-3.5 text-[#5FAF79]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
+      <!-- Center: Navigation Links -->
+      <nav class="hidden lg:flex items-center space-x-6 text-xs font-medium text-[#9A9991]">
+        <a href="#hero" class="hover:text-[#F3F0E8] transition">Product</a>
+        <a href="#live-agent" class="hover:text-[#F3F0E8] transition flex items-center space-x-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#1688D4]"></span>
+          <span>Live Agent</span>
+        </a>
+        <a href="#how-it-works" class="hover:text-[#F3F0E8] transition">How It Works</a>
+        <a href="#security" class="hover:text-[#F3F0E8] transition">Security & Policy</a>
+        <button id="nav-audit-btn" class="hover:text-[#F3F0E8] transition flex items-center space-x-1">
           <span>Audit Trail</span>
         </button>
-        <button id="nav-policies-btn" class="px-3 py-1.5 rounded text-xs font-medium text-[#98978F] hover:text-[#F4F1E8] hover:bg-[#121311] transition flex items-center space-x-1.5">
-          <svg class="w-3.5 h-3.5 text-[#D4A84F]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      </nav>
+
+      <!-- Right: Status / Actions -->
+      <div class="flex items-center space-x-3">
+        <div id="agent-status-indicator" class="flex items-center bg-[#0C0D0C] px-2.5 py-1 rounded-md border border-[#22231F]">
+          <span class="w-2 h-2 rounded-full bg-[#62AA78] agent-live-pulse inline-block mr-1.5"></span>
+          <span class="text-xs text-[#9A9991] font-mono-code uppercase tracking-wider">Agent Online</span>
+        </div>
+        
+        <div class="hidden sm:flex items-center bg-[#0C0D0C] px-2.5 py-1 rounded-md border border-[#22231F] text-[10px] font-mono-code text-[#D6A94A]">
+          RAZORPAY TEST MODE
+        </div>
+
+        <button id="nav-policies-btn" class="hidden md:flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-[#22231F] bg-[#0C0D0C] text-xs font-mono-code text-[#9A9991] hover:text-[#F3F0E8] hover:border-[#D6A94A]/30 transition">
+          <svg class="w-3.5 h-3.5 text-[#D6A94A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
           </svg>
           <span>Policies</span>
         </button>
-      </nav>
-
-      <!-- Right: Live Status Pill -->
-      <div class="flex items-center space-x-2">
-        <div id="agent-status-indicator" class="flex items-center bg-[#0D0E0D] px-2.5 py-1 rounded-md border border-[#20221F]">
-          <span class="w-2 h-2 rounded-full bg-[#5FAF79] agent-pulse inline-block mr-1.5"></span>
-          <span class="text-xs text-[#98978F] font-mono-code uppercase tracking-wider">Agent Online</span>
-        </div>
-        <div class="hidden md:flex items-center bg-[#0D0E0D] px-2.5 py-1 rounded-md border border-[#20221F] text-[10px] font-mono-code text-[#D6A94A]">
-          RAZORPAY TEST MODE
-        </div>
       </div>
 
     </div>
   </header>
 
-  <!-- ==================== MAIN WORKSPACE ==================== -->
-  <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-10 flex flex-col justify-between">
-    
-    <!-- INITIAL CALM WORKSPACE / HERO COMMAND STATE -->
-    <div id="initial-workspace" class="flex-1 flex flex-col items-center justify-center my-auto w-full max-w-2xl mx-auto py-8 animate-fade-in-up">
+  <!-- ==================== HERO SECTION ==================== -->
+  <section id="hero" class="relative pt-16 sm:pt-24 pb-16 px-4 sm:px-8 border-b border-[#22231F] overflow-hidden">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
       
-      <!-- Eyebrow & Refined Heading -->
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#121311] border border-[#20221F] text-[10px] font-mono-code text-[#D6A94A] tracking-wider uppercase mb-3.5">
-          <span>●</span>
-          <span>AI Purchase Agent</span>
+      <!-- Left Column: Editorial Headline & Copy -->
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- Eyebrow -->
+        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#0C0D0C] border border-[#22231F] text-[11px] font-mono-code text-[#D6A94A] tracking-wider uppercase">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#D6A94A]"></span>
+          <span>AI Buyer · Agentic Commerce Infrastructure</span>
         </div>
-        
-        <h1 class="font-serif-display text-3xl sm:text-4xl font-normal tracking-tight text-[#F4F1E8] mb-2.5">
-          What can I buy for you?
+
+        <!-- Dramatic Editorial Headline -->
+        <h1 class="font-editorial text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-normal leading-[1.05] tracking-tight text-[#F3F0E8]">
+          Your AI can buy.<br>
+          <span class="italic text-[#D6A94A]">Make sure it knows</span><br>
+          what it's allowed to buy.
         </h1>
+
+        <!-- Supporting Editorial Text -->
+        <p class="text-sm sm:text-base text-[#9A9991] max-w-xl leading-relaxed font-light">
+          PayGuard is an autonomous multi-agent AI buyer that turns natural-language intent into a strictly verified, policy-bounded, and auditable Razorpay transaction.
+        </p>
+
+        <!-- CTAs -->
+        <div class="flex flex-wrap items-center gap-3.5 pt-2">
+          <a href="#live-agent" class="btn-gold px-6 py-3 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-2">
+            <span>START A PURCHASE</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </a>
+
+          <a href="#how-it-works" class="btn-outline px-5 py-3 rounded-xl text-xs font-medium tracking-wider flex items-center space-x-2">
+            <span>SEE HOW IT WORKS</span>
+            <svg class="w-3.5 h-3.5 text-[#9A9991]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </a>
+        </div>
+
+        <!-- Microcopy -->
+        <div class="pt-6 border-t border-[#22231F]/70 flex items-center space-x-4 text-[11px] font-mono-code text-[#64635D]">
+          <span class="text-[#D6A94A]">INTENT</span>
+          <span>→</span>
+          <span class="text-[#1688D4]">DECISION</span>
+          <span>→</span>
+          <span class="text-[#62AA78]">PAYMENT</span>
+          <span class="hidden sm:inline text-[#9A9991] ml-2 italic">· "Autonomous purchasing, bounded by user intent."</span>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Abstract Multi-Agent Authorization Network Visualization -->
+      <div class="lg:col-span-5 relative flex items-center justify-center">
         
-        <p class="text-xs sm:text-sm text-[#98978F] max-w-md mx-auto leading-relaxed">
-          Tell PayGuard what you need. I'll handle the search, verification and payment.
+        <div class="w-full max-w-md surface-card-elevated rounded-2xl p-6 border border-[#22231F] relative overflow-hidden shadow-2xl">
+          
+          <!-- Header of Network Card -->
+          <div class="flex items-center justify-between pb-4 border-b border-[#22231F] text-xs font-mono-code">
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 rounded-full bg-[#1688D4]"></span>
+              <span class="text-[#F3F0E8] font-semibold">Autonomous Guard Matrix</span>
+            </div>
+            <span class="text-[10px] text-[#D6A94A] bg-[#D6A94A]/10 px-2 py-0.5 rounded border border-[#D6A94A]/20">Active Policy</span>
+          </div>
+
+          <!-- Network Flow Diagram (SVG) -->
+          <div class="py-6 relative flex flex-col items-center space-y-4">
+            
+            <!-- Node 1: Intent Lock -->
+            <div class="w-full flex items-center justify-between p-3 rounded-xl bg-[#0C0D0C] border border-[#22231F] text-xs">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-6 h-6 rounded bg-[#D6A94A]/10 border border-[#D6A94A]/30 flex items-center justify-center font-mono-code text-[10px] text-[#D6A94A]">01</div>
+                <div>
+                  <div class="font-mono-code text-[11px] text-[#F3F0E8] font-medium">Intent Extraction Agent</div>
+                  <div class="text-[10px] text-[#9A9991]">Natural language $\rightarrow$ IntentContract</div>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono-code text-[#62AA78]">LOCKED</span>
+            </div>
+
+            <div class="h-4 w-px bg-[#22231F] relative">
+              <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-[#D6A94A] rounded-full"></span>
+            </div>
+
+            <!-- Node 2: Buyer Agent & Drift Intercept -->
+            <div class="w-full flex items-center justify-between p-3 rounded-xl bg-[#0C0D0C] border border-[#22231F] text-xs">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-6 h-6 rounded bg-[#1688D4]/10 border border-[#1688D4]/30 flex items-center justify-center font-mono-code text-[10px] text-[#1688D4]">02</div>
+                <div>
+                  <div class="font-mono-code text-[11px] text-[#F3F0E8] font-medium">Buyer Agent + Drift Detector</div>
+                  <div class="text-[10px] text-[#9A9991]">Inventory match & 3-attempt alternative loop</div>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono-code text-[#1688D4]">SEARCHING</span>
+            </div>
+
+            <div class="h-4 w-px bg-[#22231F] relative">
+              <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-[#1688D4] rounded-full"></span>
+            </div>
+
+            <!-- Node 3: Policy Engine -->
+            <div class="w-full flex items-center justify-between p-3 rounded-xl bg-[#0C0D0C] border border-[#22231F] text-xs">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-6 h-6 rounded bg-[#D6A94A]/10 border border-[#D6A94A]/30 flex items-center justify-center font-mono-code text-[10px] text-[#D6A94A]">03</div>
+                <div>
+                  <div class="font-mono-code text-[11px] text-[#F3F0E8] font-medium">Deterministic Policy Engine</div>
+                  <div class="text-[10px] text-[#9A9991]">0% hallucination Python rule check</div>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono-code text-[#D6A94A]">EVALUATING</span>
+            </div>
+
+            <div class="h-4 w-px bg-[#22231F] relative">
+              <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-[#62AA78] rounded-full"></span>
+            </div>
+
+            <!-- Node 4: Razorpay Test Checkout -->
+            <div class="w-full flex items-center justify-between p-3 rounded-xl bg-[#0C0D0C] border border-[#62AA78]/30 text-xs">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-6 h-6 rounded bg-[#62AA78]/10 border border-[#62AA78]/30 flex items-center justify-center font-mono-code text-[10px] text-[#62AA78]">04</div>
+                <div>
+                  <div class="font-mono-code text-[11px] text-[#F3F0E8] font-medium">Payment Agent · Razorpay Test</div>
+                  <div class="text-[10px] text-[#9A9991]">Server order creation & HMAC verification</div>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono-code text-[#62AA78]">VERIFIED</span>
+            </div>
+
+          </div>
+
+          <!-- Bottom Footer of Network Card -->
+          <div class="pt-3 border-t border-[#22231F] flex items-center justify-between text-[10px] font-mono-code text-[#64635D]">
+            <span>PostgreSQL Audit Stream</span>
+            <span class="text-[#62AA78]">0 Policy Breaches</span>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== INTERACTIVE LIVE AGENT SECTION ==================== -->
+  <section id="live-agent" class="py-16 sm:py-24 px-4 sm:px-8 border-b border-[#22231F] relative">
+    <div class="max-w-4xl mx-auto space-y-8">
+      
+      <!-- Section Header -->
+      <div class="text-center space-y-2">
+        <div class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#0C0D0C] border border-[#22231F] text-[10px] font-mono-code text-[#D6A94A] tracking-wider uppercase mb-2">
+          <span>●</span>
+          <span>Live Agent</span>
+        </div>
+
+        <h2 class="font-editorial text-3xl sm:text-4xl md:text-5xl font-normal tracking-tight text-[#F3F0E8]">
+          Give it the objective.<br>
+          <span class="italic text-[#D6A94A]">PayGuard handles the rest.</span>
+        </h2>
+
+        <p class="text-xs sm:text-sm text-[#9A9991] max-w-lg mx-auto leading-relaxed">
+          State your requirements in plain language. PayGuard will autonomously parse intent, select the candidate, enforce compliance, and execute the payment.
         </p>
       </div>
 
-      <!-- Centered Command Input Box -->
-      <div class="w-full command-box rounded-2xl p-4 sm:p-5">
+      <!-- Hero Command Input Box -->
+      <div id="command-box-wrapper" class="w-full command-container rounded-2xl p-4 sm:p-5">
         <div class="relative">
           <textarea 
             id="hero-input"
             rows="3"
-            placeholder="Describe what you'd like to buy... (e.g. 'Buy a laptop for coding under ₹80,000')"
-            class="w-full bg-transparent text-sm sm:text-base text-[#F4F1E8] placeholder-[#64635D] focus:outline-none leading-relaxed resize-none"
+            placeholder="Describe what you'd like to buy... (e.g. 'Buy me a laptop for coding under ₹80,000, quantity 1')"
+            class="w-full bg-transparent text-sm sm:text-base text-[#F3F0E8] placeholder-[#64635D] focus:outline-none leading-relaxed resize-none"
             autocomplete="off"
             spellcheck="false"
           ></textarea>
         </div>
 
-        <div class="flex items-center justify-between pt-3 mt-2 border-t border-[#20221F]/60 text-xs">
+        <div class="flex items-center justify-between pt-3 mt-2 border-t border-[#22231F]/60 text-xs">
           <span class="text-[11px] font-mono-code text-[#64635D] hidden sm:inline">
-            Press <kbd class="px-1.5 py-0.5 bg-[#121311] border border-[#20221F] rounded text-[#98978F]">Enter ↵</kbd> to execute · <kbd class="px-1.5 py-0.5 bg-[#121311] border border-[#20221F] rounded text-[#98978F]">Shift + Enter</kbd> for new line
+            Press <kbd class="px-1.5 py-0.5 bg-[#111210] border border-[#22231F] rounded text-[#9A9991]">Enter ↵</kbd> to execute · <kbd class="px-1.5 py-0.5 bg-[#111210] border border-[#22231F] rounded text-[#9A9991]">Shift + Enter</kbd> for new line
           </span>
           <span class="text-[11px] font-mono-code text-[#64635D] sm:hidden">
             Intent-Locked Execution
@@ -147,7 +287,7 @@
 
           <button 
             id="hero-send-btn"
-            class="btn-gold px-5 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-1.5 transition ml-auto">
+            class="btn-gold px-6 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-1.5 transition ml-auto">
             <span>EXECUTE</span>
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
@@ -156,116 +296,180 @@
         </div>
       </div>
 
-      <div class="flex items-center justify-center space-x-4 mt-6 text-[11px] font-mono-code text-[#64635D]">
-        <span class="flex items-center space-x-1">
-          <span class="text-[#5FAF79]">✓</span>
-          <span>Zero Hallucination Policy Engine</span>
-        </span>
+      <!-- Active Agent Stream Container -->
+      <div id="chat-container" class="hidden w-full space-y-6 pt-4">
+        <div id="chat-stream" class="space-y-6">
+          <!-- Dynamic execution cards will appear here -->
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== HOW IT WORKS / ARCHITECTURE ==================== -->
+  <section id="how-it-works" class="py-16 sm:py-24 px-4 sm:px-8 border-b border-[#22231F]">
+    <div class="max-w-6xl mx-auto space-y-12">
+      
+      <div class="max-w-2xl space-y-2">
+        <div class="text-[10px] font-mono-code text-[#D6A94A] uppercase tracking-wider">Multi-Agent Architecture</div>
+        <h2 class="font-editorial text-3xl sm:text-4xl font-normal tracking-tight text-[#F3F0E8]">
+          Engineered for autonomous safety.
+        </h2>
+        <p class="text-xs sm:text-sm text-[#9A9991] leading-relaxed">
+          PayGuard separates semantic understanding from financial authorization. Large Language Models never grant spending authority.
+        </p>
+      </div>
+
+      <!-- 5 Architectural Agent Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        
+        <!-- Card 1 -->
+        <div class="surface-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono-code text-[#D6A94A] px-2 py-0.5 rounded bg-[#D6A94A]/10 border border-[#D6A94A]/25">01 · INTENT AGENT</span>
+            <span class="text-[10px] font-mono-code text-[#64635D]">Groq LLM</span>
+          </div>
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">Intent Contract Locking</h3>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            Extracts strict constraints (max budget, quantity, required features, purpose) from natural language and saves an immutable <code class="text-[#D6A94A]">IntentContract</code> in PostgreSQL.
+          </p>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="surface-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono-code text-[#1688D4] px-2 py-0.5 rounded bg-[#1688D4]/10 border border-[#1688D4]/25">02 · BUYER AGENT</span>
+            <span class="text-[10px] font-mono-code text-[#64635D]">PostgreSQL + Groq</span>
+          </div>
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">Inventory & Drift Intercept</h3>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            Searches verified products, calculates exact base + shipping + tax formulas, and runs 5-factor drift detection with up to 3 automatic alternative search attempts.
+          </p>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="surface-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono-code text-[#62AA78] px-2 py-0.5 rounded bg-[#62AA78]/10 border border-[#62AA78]/25">03 · VERIFICATION AGENT</span>
+            <span class="text-[10px] font-mono-code text-[#64635D]">5 Compliance Checks</span>
+          </div>
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">Independent Verification</h3>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            Independently validates category alignment, purpose relevance, quantity limits, stock availability, and exact mathematical pricing before authorization.
+          </p>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="surface-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono-code text-[#D6A94A] px-2 py-0.5 rounded bg-[#D6A94A]/10 border border-[#D6A94A]/25">04 · POLICY ENGINE</span>
+            <span class="text-[10px] font-mono-code text-[#64635D]">Zero LLM</span>
+          </div>
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">Deterministic Rule Guard</h3>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            100% deterministic Python rule engine enforcing merchant max transaction caps, high-value thresholds (<code class="text-[#D6A94A]">ASK_USER</code>), and duplicate order blocks.
+          </p>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="surface-card rounded-xl p-5 space-y-3 md:col-span-2 lg:col-span-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono-code text-[#62AA78] px-2 py-0.5 rounded bg-[#62AA78]/10 border border-[#62AA78]/25">05 · PAYMENT AGENT</span>
+            <span class="text-[10px] font-mono-code text-[#64635D]">Razorpay Test Mode</span>
+          </div>
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">Razorpay Order & Cryptographic Signature Verification</h3>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            Creates server-side Razorpay test orders only upon verified policy clearance. Never exposes secrets to frontend, and verifies authentic HMAC SHA256 payment signatures before finalizing transactions.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== SECURITY & AUDIT SECTION ==================== -->
+  <section id="security" class="py-16 sm:py-24 px-4 sm:px-8 border-b border-[#22231F]">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <div class="space-y-3">
+        <div class="text-[10px] font-mono-code text-[#62AA78] uppercase tracking-wider">Zero-Trust Guardrails</div>
+        <h3 class="font-editorial text-2xl sm:text-3xl font-medium text-[#F3F0E8]">
+          Deterministic control over AI spending.
+        </h3>
+        <p class="text-xs text-[#9A9991] leading-relaxed">
+          AI agents excel at discovery and formulation, but financial decisions require mathematical certainty. PayGuard guarantees that no unauthorized transaction can occur.
+        </p>
+      </div>
+
+      <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        
+        <div class="surface-card rounded-xl p-4 space-y-1.5">
+          <div class="font-mono-code text-xs font-semibold text-[#D6A94A]">Intent Drift Intercept</div>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            Detects budget drift, quantity drift, category deviation, and missing specifications before orders are created.
+          </p>
+        </div>
+
+        <div class="surface-card rounded-xl p-4 space-y-1.5">
+          <div class="font-mono-code text-xs font-semibold text-[#1688D4]">Autonomous Spending Caps</div>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            Strict merchant transaction ceiling and high-value threshold pause transactions for human-in-the-loop approval.
+          </p>
+        </div>
+
+        <div class="surface-card rounded-xl p-4 space-y-1.5">
+          <div class="font-mono-code text-xs font-semibold text-[#62AA78]">HMAC SHA256 Signatures</div>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            All Razorpay payment confirmations undergo cryptographic signature verification to prevent spoofing.
+          </p>
+        </div>
+
+        <div class="surface-card rounded-xl p-4 space-y-1.5">
+          <div class="font-mono-code text-xs font-semibold text-[#F3F0E8]">Immutable Audit Trail</div>
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            Every intent extraction, candidate proposal, drift detection, policy evaluation, and payment attempt is logged to PostgreSQL.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="py-12 px-4 sm:px-8 border-t border-[#22231F] bg-[#080908]">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#64635D] font-mono-code">
+      
+      <div class="flex items-center space-x-3">
+        <div class="w-6 h-6 rounded bg-[#0C0D0C] border border-[#D6A94A]/30 flex items-center justify-center font-brand text-[10px] text-[#D6A94A] font-bold">PG</div>
+        <span class="text-[#9A9991]">PayGuard Commerce Engine</span>
         <span>·</span>
-        <span class="flex items-center space-x-1">
-          <span class="text-[#5FAF79]">✓</span>
-          <span>Cryptographic Signature Guard</span>
-        </span>
+        <span>Razorpay Test Mode</span>
+      </div>
+
+      <div class="flex items-center space-x-6">
+        <a href="#hero" class="hover:text-[#F3F0E8] transition">Top</a>
+        <a href="#live-agent" class="hover:text-[#F3F0E8] transition">Live Agent</a>
+        <a href="#how-it-works" class="hover:text-[#F3F0E8] transition">Architecture</a>
+        <a href="#security" class="hover:text-[#F3F0E8] transition">Security</a>
+      </div>
+
+      <div>
+        <span>© 2026 PayGuard Autonomous Systems.</span>
       </div>
 
     </div>
-
-    <!-- ACTIVE CONVERSATION / PIPELINE STREAM -->
-    <div id="chat-container" class="hidden flex-1 pb-36 w-full">
-      <div id="chat-stream" class="space-y-6">
-        <!-- Messages & Agent Pipeline cards will be injected dynamically -->
-      </div>
-    </div>
-
-  </main>
-
-  <!-- ==================== FIXED BOTTOM COMMAND BAR (Active Session) ==================== -->
-  <div id="bottom-bar-container" class="hidden fixed bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#080908] via-[#080908]/95 to-transparent pt-6 pb-6 px-4">
-    <div class="max-w-3xl mx-auto">
-      <div class="command-box rounded-2xl p-2.5 flex items-center space-x-2">
-        <input 
-          id="chat-input"
-          type="text" 
-          placeholder="Give your AI buyer a new task (e.g. 'Buy wireless headphones under ₹25,000')..."
-          class="flex-1 bg-transparent px-4 py-2 text-sm text-[#F4F1E8] placeholder-[#64635D] focus:outline-none"
-          autocomplete="off"
-        />
-        <button 
-          id="send-btn"
-          class="btn-gold px-5 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-1.5 transition">
-          <span>EXECUTE</span>
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-          </svg>
-        </button>
-      </div>
-      <div class="flex items-center justify-between text-[11px] font-mono-code text-[#64635D] px-3 mt-2">
-        <span>Autonomous Multi-Agent Purchase Guard</span>
-        <span>Deterministic Policy Active</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== DRAWER: AGENT ARCHITECTURE ==================== -->
-  <div id="activity-drawer" class="fixed inset-y-0 right-0 z-40 w-full sm:w-96 bg-[#0D0E0D] border-l border-[#20221F] transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col">
-    <div class="p-5 border-b border-[#20221F] flex items-center justify-between">
-      <div class="flex items-center space-x-2">
-        <span class="w-2 h-2 rounded-full bg-[#1688D4]"></span>
-        <h3 class="font-serif-display text-base font-semibold text-[#F4F1E8]">Agent Architecture</h3>
-      </div>
-      <button id="close-activity-btn" class="p-1 rounded hover:bg-[#121311] text-[#98978F] hover:text-[#F4F1E8]">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-
-    <div class="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-      <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
-        <div class="font-mono-code text-[11px] text-[#D6A94A] font-semibold mb-1">1. INTENT AGENT</div>
-        <p class="text-[#98978F] leading-relaxed">
-          Powered by Groq LLM. Analyzes natural language request, locks user constraints (budget, quantity, purpose), and generates immutable IntentContract.
-        </p>
-      </div>
-
-      <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
-        <div class="font-mono-code text-[11px] text-[#D6A94A] font-semibold mb-1">2. BUYER AGENT</div>
-        <p class="text-[#98978F] leading-relaxed">
-          Searches real PostgreSQL merchant catalog, calculates exact tax and shipping, and detects intent drift (up to 3 alternative search iterations).
-        </p>
-      </div>
-
-      <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
-        <div class="font-mono-code text-[11px] text-[#D6A94A] font-semibold mb-1">3. VERIFICATION AGENT</div>
-        <p class="text-[#98978F] leading-relaxed">
-          Independently verifies 5 strict dimensions: Category match, Purpose relevance, Quantity cap, Real-time stock, and Pricing formula.
-        </p>
-      </div>
-
-      <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
-        <div class="font-mono-code text-[11px] text-[#D6A94A] font-semibold mb-1">4. DETERMINISTIC POLICY ENGINE</div>
-        <p class="text-[#98978F] leading-relaxed">
-          Pure Python rule engine (0% LLM hallucination). Enforces merchant spending caps, high-value thresholds (ASK_USER), and duplicate prevention.
-        </p>
-      </div>
-
-      <div class="bg-[#121311] p-4 rounded-xl border border-[#20221F]">
-        <div class="font-mono-code text-[11px] text-[#D6A94A] font-semibold mb-1">5. PAYMENT AGENT</div>
-        <p class="text-[#98978F] leading-relaxed">
-          Integrates Razorpay Test Mode. Creates server-side orders and validates cryptographic HMAC SHA256 payment signatures.
-        </p>
-      </div>
-    </div>
-  </div>
+  </footer>
 
   <!-- ==================== DRAWER: AUDIT TRAIL ==================== -->
-  <div id="audit-drawer" class="fixed inset-y-0 right-0 z-40 w-full sm:w-[460px] bg-[#0D0E0D] border-l border-[#20221F] transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col">
-    <div class="p-5 border-b border-[#20221F] flex items-center justify-between">
+  <div id="audit-drawer" class="fixed inset-y-0 right-0 z-50 w-full sm:w-[460px] bg-[#0C0D0C] border-l border-[#22231F] transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col">
+    <div class="p-5 border-b border-[#22231F] flex items-center justify-between">
       <div class="flex items-center space-x-2">
-        <span class="w-2 h-2 rounded-full bg-[#5FAF79]"></span>
-        <h3 class="font-serif-display text-base font-semibold text-[#F4F1E8]">Immutable Audit Trail</h3>
+        <span class="w-2 h-2 rounded-full bg-[#62AA78]"></span>
+        <h3 class="font-serif-display text-base font-semibold text-[#F3F0E8]">Immutable PostgreSQL Audit Trail</h3>
       </div>
-      <button id="close-audit-btn" class="p-1 rounded hover:bg-[#121311] text-[#98978F] hover:text-[#F4F1E8]">
+      <button id="close-audit-btn" class="p-1 rounded hover:bg-[#111210] text-[#9A9991] hover:text-[#F3F0E8]">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -273,16 +477,16 @@
     </div>
 
     <div class="flex-1 overflow-y-auto p-5" id="audit-timeline">
-      <!-- Audit records rendered dynamically -->
+      <!-- Audit timeline injected dynamically -->
     </div>
   </div>
 
   <!-- ==================== MODAL: MERCHANT POLICIES ==================== -->
   <div id="policies-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-    <div class="bg-[#0D0E0D] border border-[#20221F] rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-fade-in-up">
-      <div class="flex items-center justify-between mb-5 pb-3 border-b border-[#20221F]">
-        <h3 class="font-serif-display text-lg font-semibold text-[#F4F1E8]">Active Merchant Policies</h3>
-        <button id="close-policies-btn" class="p-1 rounded hover:bg-[#121311] text-[#98978F] hover:text-[#F4F1E8]">
+    <div class="bg-[#0C0D0C] border border-[#22231F] rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-fade-in-up">
+      <div class="flex items-center justify-between mb-5 pb-3 border-b border-[#22231F]">
+        <h3 class="font-serif-display text-lg font-semibold text-[#F3F0E8]">Active Merchant Policies</h3>
+        <button id="close-policies-btn" class="p-1 rounded hover:bg-[#111210] text-[#9A9991] hover:text-[#F3F0E8]">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -290,12 +494,12 @@
       </div>
 
       <div id="policies-content" class="space-y-4">
-        <!-- Policies loaded dynamically from /api/policies -->
+        <!-- Policies loaded dynamically -->
       </div>
     </div>
   </div>
 
-  <!-- Client Application Scripts -->
+  <!-- Client Application Logic -->
   <script src="/static/app.js"></script>
 </body>
 </html>
