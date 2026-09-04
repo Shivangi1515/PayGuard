@@ -2,11 +2,15 @@ import os
 import hmac
 import hashlib
 import logging
+from pathlib import Path
 from typing import Optional, Dict, Any
 import razorpay  # type: ignore
 from dotenv import load_dotenv
 
-load_dotenv()
+# Ensure .env is explicitly loaded from the project root directory
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ENV_PATH = PROJECT_ROOT / ".env"
+load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 logger = logging.getLogger("payguard.payment_service")
 
@@ -24,17 +28,44 @@ class PaymentService:
         key_id: Optional[str] = None,
         key_secret: Optional[str] = None,
     ):
-        self.key_id = key_id or os.getenv("RAZORPAY_KEY_ID", "")
-        self.key_secret = key_secret or os.getenv("RAZORPAY_KEY_SECRET", "")
+        self._explicit_key_id = key_id
+        self._explicit_key_secret = key_secret
         self._client: Optional[razorpay.Client] = None
 
     @property
+    def key_id(self) -> str:
+        """Returns the trimmed Razorpay Key ID."""
+        if self._explicit_key_id:
+            return self._explicit_key_id.strip().strip("'\"")
+        val = os.getenv("RAZORPAY_KEY_ID", "")
+        return val.strip().strip("'\"")
+
+    @key_id.setter
+    def key_id(self, value: str):
+        self._explicit_key_id = value
+        self._client = None
+
+    @property
+    def key_secret(self) -> str:
+        """Returns the trimmed Razorpay Key Secret."""
+        if self._explicit_key_secret:
+            return self._explicit_key_secret.strip().strip("'\"")
+        val = os.getenv("RAZORPAY_KEY_SECRET", "")
+        return val.strip().strip("'\"")
+
+    @key_secret.setter
+    def key_secret(self, value: str):
+        self._explicit_key_secret = value
+        self._client = None
+
+    @property
     def client(self) -> razorpay.Client:
-        """Lazily initializes and returns the Razorpay client."""
-        if self._client is None or self._client.auth != (self.key_id, self.key_secret):
+        """Lazily initializes and returns the Razorpay client using current credentials."""
+        current_auth = (self.key_id, self.key_secret)
+        if self._client is None or getattr(self._client, "auth", None) != current_auth:
             if not self.key_id or not self.key_secret:
-                logger.warning("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET not set in environment.")
-            self._client = razorpay.Client(auth=(self.key_id, self.key_secret))
+                logger.warning("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET not configured in .env.")
+            self._client = razorpay.Client(auth=current_auth)
         return self._client
 
     def get_public_key(self) -> str:
@@ -75,7 +106,11 @@ class PaymentService:
             order_data["notes"] = {str(k): str(v)[:50] for k, v in notes.items()}
 
         try:
-            logger.info(f"Creating Razorpay Test order: amount=INR {amount:.2f} ({amount_in_paise} paise), receipt={receipt}")
+            safe_key_preview = f"{self.key_id[:10]}..." if len(self.key_id) >= 10 else self.key_id
+            logger.info(
+                f"Creating Razorpay Test order: amount=INR {amount:.2f} ({amount_in_paise} paise), "
+                f"key_id={safe_key_preview}, receipt={receipt}"
+            )
             order = self.client.order.create(data=order_data)
             logger.info(f"Razorpay order created successfully: ID={order.get('id')}")
             return order
@@ -103,12 +138,13 @@ class PaymentService:
             logger.warning("Missing required parameters for signature verification.")
             return False
 
-        if not self.key_secret:
+        secret = self.key_secret
+        if not secret:
             logger.error("Cannot verify signature: RAZORPAY_KEY_SECRET is missing.")
             return False
 
         try:
-            # First try official SDK utility verification
+            # SDK utility verification
             params_dict = {
                 "razorpay_order_id": razorpay_order_id,
                 "razorpay_payment_id": razorpay_payment_id,
@@ -121,11 +157,10 @@ class PaymentService:
             logger.warning(f"Signature verification failed for Order={razorpay_order_id}, Payment={razorpay_payment_id}")
             return False
         except Exception as e:
-            logger.warning(f"SDK verification exception ({e}), falling back to direct HMAC-SHA256...")
-            # Fallback deterministic HMAC-SHA256 check
+            logger.warning(f"SDK verification fallback to direct HMAC ({e})")
             msg = f"{razorpay_order_id}|{razorpay_payment_id}".encode("utf-8")
             generated_signature = hmac.new(
-                self.key_secret.encode("utf-8"),
+                secret.encode("utf-8"),
                 msg,
                 hashlib.sha256,
             ).hexdigest()
