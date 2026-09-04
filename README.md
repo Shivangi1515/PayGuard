@@ -1,11 +1,11 @@
 # PayGuard 🛡️
 
-### The Multi-Agent Autonomous Commerce Platform That Pays Within Your Intent
+### The AI Buyer That Acts Within Your Intent
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Groq](https://img.shields.io/badge/Groq-Llama_3.3_70B-F55036?style=flat-square)](https://groq.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Groq](https://img.shields.io/badge/Groq-llama--3.3--70b--versatile-F55036?style=flat-square)](https://groq.com)
 [![Razorpay](https://img.shields.io/badge/Razorpay-Test_Mode-0C2340?style=flat-square&logo=razorpay&logoColor=white)](https://razorpay.com)
 [![License](https://img.shields.io/badge/License-MIT-gold?style=flat-square)](LICENSE)
 
@@ -13,30 +13,30 @@
 
 ## 📌 Overview
 
-AI agents are rapidly transitioning from conversational recommendation engines to **autonomous economic actors** capable of taking actions on behalf of humans. In commerce, an unconstrained AI model can turn a hallucination, ambiguity, or specification drift directly into an unauthorized financial transaction.
+AI agents are moving from recommending products to taking autonomous actions on behalf of users. In commerce, an unconstrained AI mistake or hallucination can directly turn into an unauthorized financial transaction.
+
+PayGuard is an **agentic-commerce prototype platform** that allows specialized AI agents to perform purchasing tasks while deterministic authorization controls prevent the AI from exceeding the user's intent or merchant-defined autonomy limits.
 
 > **"The AI can act. Your intent sets the boundary."**  
 > **"The AI proposes. The Policy Engine decides. Razorpay executes."**
 
-**PayGuard** is an autonomous multi-agent agentic-commerce infrastructure system. It establishes a bounded, verifiable, and policy-governed transaction layer between natural-language user intent and financial payment execution. 
-
-PayGuard transforms natural-language prompts into an immutable **Intent Contract**, tasks specialized agents with catalog discovery and drift interception, independently audits proposals across a **5-Factor Verification Matrix**, applies **Deterministic Policy Guardrails**, and securely finalizes payments via **Razorpay Test Mode** with server-side **HMAC SHA256** cryptographic signature validation.
+AI agents handle semantic reasoning and catalog discovery. Deterministic backend services enforce financial authorization and execute protected payment operations.
 
 ---
 
 ## 🏛️ System Architecture
 
-PayGuard operates on a strict **Separation of Concerns & Separation of Powers** principle: Large Language Models (LLMs) are restricted to semantic intent extraction and candidate discovery; they have **zero authority** to grant financial clearance or execute payments.
+PayGuard operates on a strict **Separation of Concerns & Separation of Powers** principle: Large Language Models (LLMs) are used only for intent extraction and candidate discovery. LLMs have **zero authority** to grant financial clearance, override spending caps, or execute payment operations.
 
 ```mermaid
 flowchart TD
-    User([User Natural Language Prompt]) -->|POST /agent/intent| IA[Intent Agent]
+    User([User Natural Language Prompt]) -->|POST /agent/intent| IA[Intent Agent - AI Agent]
     
     subgraph S1["1. Intent Locking"]
         IA -->|Extract Parameters via Groq LLM| IC[(PostgreSQL: IntentContract)]
     end
     
-    IC -->|POST /agent/buy| BA[Buyer Agent]
+    IC -->|POST /agent/buy| BA[Buyer Agent - AI Agent]
     
     subgraph S2["2. Catalog Discovery & Drift Intercept"]
         BA <-->|Query Inventory & Specs| DB[(PostgreSQL: Products Catalog)]
@@ -46,7 +46,7 @@ flowchart TD
         DD -->|Compliant Proposal| PP[Purchase Proposal]
     end
     
-    PP -->|POST /agent/verify| VA[Verification Agent]
+    PP -->|POST /agent/verify| VA[Verification Agent - Deterministic Service]
     
     subgraph S3["3. Independent 5-Factor Verification"]
         VA --> C1[1. Category Match Check]
@@ -56,18 +56,18 @@ flowchart TD
         VA --> C5[5. Pricing Formula Validation]
     end
     
-    S3 --> PE[Deterministic Policy Engine]
+    S3 --> PE[Policy Engine - Deterministic Policy Service]
     
     subgraph S4["4. Deterministic Policy Enforcement"]
         PE --> DEC{Policy Decision}
-        DEC -->|APPROVE| PA[Payment Agent]
+        DEC -->|APPROVE| PA[Payment Agent - Execution Service]
         DEC -->|ASK_USER| CONF[Pause Agent & Await User Confirmation]
         CONF -->|User Confirmed| PA
-        DEC -->|BLOCK| BLK[Halt & Reject Order Creation]
+        DEC -->|BLOCK| BLK[Halt & Deny Order Creation]
     end
     
     subgraph S5["5. Payment Execution & Verification"]
-        PA -->|POST /agent/payment/create| RZP_API[Razorpay Orders API]
+        PA -->|POST /agent/payment/create| RZP_API[Razorpay Test Orders API]
         RZP_API --> RZP_UI[Razorpay Test Mode Checkout Modal]
         RZP_UI -->|Payment Completed| RZP_VERIF[POST /agent/payment/verify]
         RZP_VERIF -->|HMAC SHA256 Signature Verification| VERIF_RES{Valid Signature?}
@@ -84,17 +84,17 @@ flowchart TD
 
 ---
 
-## 🤖 The Multi-Agent Pipeline
+## 🤖 Pipeline Components & Terminology
 
-PayGuard decomposes agentic commerce into five decoupled agents and services:
+PayGuard cleanly separates AI-driven agents from deterministic backend services:
 
-| Agent / Service | Core Responsibility | Technology | Determinism |
-| :--- | :--- | :--- | :--- |
-| **1. Intent Agent** | Extracts structured constraints (`product_type`, `purpose`, `max_budget`, `quantity`, `preferences`, `payment_authorized`) and locks an immutable `IntentContract` in PostgreSQL. | Groq LLM (`llama-3.3-70b-versatile`) + Pydantic | Semantic + Schema-enforced |
-| **2. Buyer Agent** | Discovers merchant inventory candidates, calculates base + shipping + tax formulas, handles availability classification, and executes a 3-attempt alternative search loop. | PostgreSQL + Groq + Python Algorithms | Hybrid Discovery |
-| **3. Verification Agent** | Independently audits the candidate product against the `IntentContract` across 5 isolated checks without LLM involvement. | Pure Python + PostgreSQL | **100% Deterministic** |
-| **4. Policy Engine** | Evaluates deterministic financial and merchant guardrails (budget caps, high-value thresholds, duplicate blocks). Returns `APPROVE`, `ASK_USER`, or `BLOCK`. | Pure Python + PostgreSQL | **100% Deterministic** |
-| **5. Payment Agent** | Re-verifies all parameters on the backend, generates server-side Razorpay test orders, opens the checkout interface, and cryptographically verifies signatures. | Razorpay Python SDK + HMAC SHA256 | **100% Cryptographic** |
+| Component | Classification | Core Responsibility | Underlying Technology | Determinism |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Intent Agent** | **AI Agent** | Parses natural-language requests into structured parameters (`product_type`, `purpose`, `max_budget`, `quantity`, `preferences`, `payment_authorized`) and locks an immutable `IntentContract` in PostgreSQL. | Groq LLM (`llama-3.3-70b-versatile`) + Pydantic v2 | Semantic + Schema-enforced |
+| **2. Buyer Agent** | **AI Agent** | Discovers merchant inventory candidates in PostgreSQL, calculates base + shipping + tax formulas, classifies catalog availability, and runs up to 3 alternative candidate evaluations. | PostgreSQL + Groq LLM (`llama-3.3-70b-versatile`) + Python | Hybrid Discovery |
+| **3. Verification Agent** | **Deterministic Service** | Independently audits candidate products against the `IntentContract` across 5 isolated checks without LLM involvement. | Pure Python + PostgreSQL | **100% Deterministic** |
+| **4. Policy Engine** | **Deterministic Policy Service** *(Not an AI agent)* | Evaluates deterministic financial and merchant guardrails (budget caps, high-value thresholds, duplicate blocks). Returns `APPROVE`, `ASK_USER`, or `BLOCK`. | Pure Python + PostgreSQL | **100% Deterministic** |
+| **5. Payment Agent** | **Payment Execution Service** | Re-verifies all parameters on the backend, generates server-side Razorpay test orders, initiates checkout, and cryptographically verifies signatures. | Razorpay Python SDK + HMAC SHA256 | **100% Cryptographic** |
 
 ---
 
@@ -102,22 +102,28 @@ PayGuard decomposes agentic commerce into five decoupled agents and services:
 
 ### The 5-Factor Verification Matrix
 
-Before any proposed purchase reaches the Policy Engine, the **Verification Agent** independently verifies the candidate against the authoritative database record:
+Before any proposed purchase reaches the Policy Engine, the **Verification Agent** independently audits the candidate against the authoritative database record:
 
 1. **`category_match`**: Verifies candidate category matches requested product type.
 2. **`purpose_relevance`**: Confirms product specifications satisfy user purpose (e.g., coding, noise cancellation).
-3. **`quantity_limit`**: Enforces `proposed_quantity <= authorized_quantity`.
-4. **`stock_availability`**: Asserts `available_stock >= requested_quantity`.
+3. **`quantity_limit`**: Enforces $\text{Proposed Quantity} \le \text{Authorized Quantity}$.
+4. **`stock_availability`**: Asserts $\text{Available Stock} \ge \text{Requested Quantity}$.
 5. **`pricing_calculation`**: Validates deterministic pricing formula:  
    $$\text{Final Amount} = (\text{Base Price} + \text{Shipping Charge} + \text{Tax}) \times \text{Quantity}$$
 
-### Policy Engine Decisions
+### Deterministic Policy Rules
+
+> **"LLMs propose. Deterministic backend policy decides. Razorpay executes only after authorization."**
+
+* **User Budget Constraint**: User budget is a strict hard limit. Transactions exceeding this limit are blocked.
+* **Merchant High-Value Threshold (`₹80,000`)**: Controls autonomy. Transactions at or above this threshold require explicit user confirmation.
+* **Merchant Max Transaction Cap (`₹1,00,000`)**: Strict hard limit. Transactions exceeding this cap cannot be created.
 
 | Decision | Trigger Conditions | Execution Behavior |
 | :--- | :--- | :--- |
-| **`APPROVE`** | All 5 checks PASS, payment authorized, and $\text{Final Amount} < \text{High-Value Threshold}$ (`₹80,000`). | **Auto-Approved**: Automatically launches Razorpay checkout without requiring secondary manual approval. |
-| **`ASK_USER`** | All 5 checks PASS, but $\text{Final Amount} \ge \text{High-Value Threshold}$ (`₹80,000`). | **Paused Execution**: Explains high-value threshold trigger, renders confirmation prompt, and requires explicit user approval before payment order creation. |
-| **`BLOCK`** | Any verification failure, intentional drift, unauthorized payment flag, amount exceeding budget, or amount exceeding merchant cap (`₹1,00,000`). | **Safety Intercept**: Payment order creation is strictly denied (returns HTTP 400). Renders reason and enables alternative search. |
+| **`APPROVE`** | All 5 checks PASS, payment authorized, and $\text{Final Amount} < \text{High-Value Threshold}$ (`₹80,000`). | **Auto-Approved**: Automatically continues to payment order creation and launches Razorpay Test Mode checkout without requiring secondary manual approval. |
+| **`ASK_USER`** | All 5 checks PASS, but $\text{Final Amount} \ge \text{High-Value Threshold}$ (`₹80,000`). | **Paused Execution**: Pauses the agent, explains high-value threshold trigger, and requires explicit user approval before payment order creation. |
+| **`BLOCK`** | Any verification failure, intentional drift, unauthorized payment flag, amount exceeding user budget, or amount exceeding merchant cap (`₹1,00,000`). | **Safety Intercept**: Payment order creation is strictly denied (returns HTTP 400). Renders reason and enables alternative search. |
 
 ---
 
@@ -134,7 +140,7 @@ PayGuard classifies and handles catalog availability failures with structured us
    - Triggered when the requested category does not exist in the merchant catalog.
    - Prevents LLM hallucinations; displays verified categories (`Laptops`, `Smartphones`, `Headphones`).
 3. **`PRODUCT_OUT_OF_STOCK`**:
-   - Triggered when all catalog matches have `stock < quantity`.
+   - Triggered when all catalog matches have $\text{Stock} < \text{Quantity}$.
    - Automatically searches for compliant in-stock alternatives.
 4. **`SPEC_NOT_AVAILABLE`**:
    - Triggered when candidate products fail hard specification constraints.
@@ -142,16 +148,30 @@ PayGuard classifies and handles catalog availability failures with structured us
 
 ---
 
-## 🔒 Security Hardening
+## 💳 Razorpay Test Mode Integration
 
-PayGuard implements production-style security safeguards across all architectural layers:
+PayGuard integrates with **Razorpay Test Mode** for development, demonstration, and validation of agentic commerce workflows.
 
-* **Strict Secrets Isolation**: `GROQ_API_KEY`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` are loaded exclusively from `.env`. `RAZORPAY_KEY_SECRET` is never exposed to the frontend or returned in API payloads.
-* **Server-Side Authorization**: `payment_agent.initiate_payment` never trusts frontend parameters (prices, budgets, or authorization flags). It queries authoritative PostgreSQL models directly.
-* **Cryptographic Signature Verification**: Razorpay payment verification executes server-side HMAC SHA256 validation comparing `razorpay_order_id|razorpay_payment_id` against `RAZORPAY_KEY_SECRET`.
+> [!NOTE]
+> PayGuard uses Razorpay Test Mode for development and demo transactions. Test transactions do not represent live production payment processing.
+
+* **Server-Side Order Creation**: All Razorpay orders are created exclusively from the backend (`POST /agent/payment/create`) using validated database amounts.
+* **Protected Secrets**: `RAZORPAY_KEY_SECRET` remains server-side only and is never exposed to the frontend.
+* **Server-Side Verification**: Payment completion is validated entirely on the backend via HMAC SHA256 cryptographic signature verification.
+* **Untrusted Frontend Callbacks**: A frontend success callback alone **cannot** mark a transaction as completed. The database status remains `ORDER_CREATED` until the server cryptographically validates the signature.
+
+---
+
+## 🔒 Security Safeguards
+
+Security safeguards implemented in this prototype:
+
+* **Strict Secrets Isolation**: `GROQ_API_KEY`, `RAZORPAY_KEY_ID`, and `RAZORPAY_KEY_SECRET` are loaded exclusively from `.env`. `RAZORPAY_KEY_SECRET` is never exposed to the client.
+* **Server-Side Parameter Authorization**: `payment_agent.initiate_payment` re-evaluates all policy rules and product prices against PostgreSQL database records, ignoring client-supplied budget or price parameters.
+* **Cryptographic Signature Verification**: Server validates HMAC SHA256 signatures over `razorpay_order_id|razorpay_payment_id` using the server's `RAZORPAY_KEY_SECRET`.
 * **Order ID Matching**: Rejects incoming verification tokens if the client-submitted `razorpay_order_id` does not match the database transaction record.
 * **Duplicate Purchase Intercept**: Blocks duplicate order creation if an active transaction is already `COMPLETED` for that Intent Contract.
-* **Server-Side Retry Throttling**: Enforces `max_automated_retries` server-side to prevent infinite payment loops.
+* **Server-Side Retry Throttling**: Enforces `max_automated_retries` server-side to prevent infinite automated payment loops.
 * **Transient Socket Recovery**: Implements HTTP session retry adapters with exponential backoff on `ConnectionResetError` (10054).
 * **Defensive HTTP Headers**: Enforces `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 1; mode=block`, and explicit CORS origin policies.
 * **Zero Secret Logging**: API keys, payment secrets, and signature hashes are masked from application logs and PostgreSQL audit entries.
@@ -214,6 +234,9 @@ PayGuard uses **PostgreSQL** with **SQLAlchemy ORM**:
 
 ## 📡 API Reference
 
+> [!NOTE]
+> All IDs, amounts, and hashes in the examples below are illustrative placeholders.
+
 ### 1. Intent Extraction Agent
 ```http
 POST /agent/intent
@@ -223,10 +246,10 @@ Content-Type: application/json
   "request": "Buy me a laptop for coding under 80000, quantity 1"
 }
 ```
-**Response (`201 Created`):**
+*Example Response (`201 Created`):*
 ```json
 {
-  "intent_contract_id": 42,
+  "intent_contract_id": 1,
   "product_type": "Laptop",
   "purpose": "coding",
   "max_budget": 80000.0,
@@ -242,10 +265,10 @@ POST /agent/buy
 Content-Type: application/json
 
 {
-  "intent_contract_id": 42
+  "intent_contract_id": 1
 }
 ```
-**Response (`200 OK`):**
+*Example Response (`200 OK`):*
 ```json
 {
   "product_id": 6,
@@ -270,12 +293,12 @@ POST /agent/verify
 Content-Type: application/json
 
 {
-  "intent_contract_id": 42,
+  "intent_contract_id": 1,
   "product_id": 6,
   "quantity": 1
 }
 ```
-**Response (`200 OK`):**
+*Example Response (`200 OK`):*
 ```json
 {
   "decision": "APPROVE",
@@ -296,18 +319,18 @@ POST /agent/payment/create
 Content-Type: application/json
 
 {
-  "intent_contract_id": 42,
+  "intent_contract_id": 1,
   "product_id": 6,
   "quantity": 1,
   "user_confirmed": false
 }
 ```
-**Response (`201 Created`):**
+*Example Response (`201 Created`):*
 ```json
 {
-  "transaction_id": 24,
-  "razorpay_order_id": "order_TY6HBUTbuZtDy2",
-  "razorpay_key_id": "rzp_test_TY3FK2uuxFvV3A",
+  "transaction_id": 1,
+  "razorpay_order_id": "order_xxxxxxxxx",
+  "razorpay_key_id": "rzp_test_xxxxxxxxx",
   "amount": 71038.2,
   "amount_in_paise": 7103820,
   "currency": "INR",
@@ -323,20 +346,20 @@ POST /agent/payment/verify
 Content-Type: application/json
 
 {
-  "transaction_id": 24,
-  "razorpay_order_id": "order_TY6HBUTbuZtDy2",
-  "razorpay_payment_id": "pay_TY6HExample123",
-  "razorpay_signature": "9ef5426da7d673f8a42f5c7de0b35b64..."
+  "transaction_id": 1,
+  "razorpay_order_id": "order_xxxxxxxxx",
+  "razorpay_payment_id": "pay_xxxxxxxxx",
+  "razorpay_signature": "<example_hmac_sha256_signature>"
 }
 ```
-**Response (`200 OK`):**
+*Example Response (`200 OK`):*
 ```json
 {
-  "transaction_id": 24,
+  "transaction_id": 1,
   "status": "COMPLETED",
   "verified": true,
-  "razorpay_order_id": "order_TY6HBUTbuZtDy2",
-  "razorpay_payment_id": "pay_TY6HExample123",
+  "razorpay_order_id": "order_xxxxxxxxx",
+  "razorpay_payment_id": "pay_xxxxxxxxx",
   "message": "Payment verified and transaction completed successfully."
 }
 ```
@@ -345,6 +368,7 @@ Content-Type: application/json
 * `GET /api/audit-logs?limit=25`: Returns recent immutable PostgreSQL audit records.
 * `GET /api/policies`: Returns active merchant policy thresholds.
 * `GET /health`: Returns service health and database connection status.
+* `GET /`: Serves the single-page web interface.
 
 ---
 
@@ -359,8 +383,9 @@ PayGuard/
 │   └── verification_agent.py   # Deterministic 5-factor independent verification
 ├── services/
 │   ├── audit_service.py        # PostgreSQL audit trail logging service
+│   ├── catalog_service.py      # Catalog lookup helper
 │   ├── drift_detector.py       # 5-factor semantic and numerical drift detector
-│   ├── groq_service.py         # Groq API client with JSON schema enforcement
+│   ├── groq_service.py         # Groq API client (llama-3.3-70b-versatile)
 │   ├── payment_service.py      # Razorpay client with connection retry resilience
 │   └── policy_engine.py        # Deterministic Python policy decision engine
 ├── static/
@@ -369,10 +394,13 @@ PayGuard/
 │   └── index.html              # Single-page editorial AI buyer interface
 ├── app.py                      # FastAPI application, route declarations & middleware
 ├── database.py                 # SQLAlchemy engine, session factory & DB connection verification
+├── diagnose_razorpay.py        # Safe diagnostic script for Razorpay credentials check
 ├── models.py                   # SQLAlchemy ORM models (Product, Intent, Transaction, Audit)
+├── requirements.txt            # Python production dependencies
 ├── schemas.py                  # Pydantic v2 validation models & request/response schemas
 ├── seed_products.py            # PostgreSQL database seeding (15 products & default policy)
-├── requirements.txt            # Python production dependencies
+├── test_drift_and_alternatives.py # Automated test suite for drift detection & alternatives
+├── test_payment_agent.py       # Automated test suite for payment agent & policy rules
 ├── .env.example                # Template for environment variables
 └── README.md                   # Comprehensive developer documentation
 ```
@@ -428,7 +456,7 @@ Edit `.env` with your credentials:
 
 ```ini
 # PostgreSQL Database URL
-DATABASE_URL=postgresql://postgres:password@localhost:5432/payguard
+DATABASE_URL=postgresql://username:password@localhost:5432/payguard
 
 # Groq LLM Configuration
 GROQ_API_KEY=gsk_your_groq_api_key_here
@@ -466,13 +494,36 @@ Open your browser and navigate to:
 
 ## 🧪 Testing Multi-Agent Scenarios
 
-| Scenario | Input Prompt | Expected Flow & Policy Outcome |
+> [!NOTE]
+> The examples below illustrate default catalog behavior with the default seed dataset (15 products) and active merchant policy.
+
+| Scenario | Example Prompt | Expected Flow & Policy Outcome |
 | :--- | :--- | :--- |
-| **1. Autonomous Approval** | `Buy me wireless headphones under ₹25,000, quantity 1` | Picks `Audio-Technica ATH-M50xBT2` (₹20,838.20). $\text{Amount} < ₹80\text{k}$. **`APPROVE`** $\rightarrow$ Automatically opens Razorpay checkout. |
-| **2. Auto-Approved Laptop** | `Buy me a laptop for coding under 80000` | Picks `Acer Swift Go 14` (₹71,038.20). $\text{Amount} \le ₹80\text{k}$. **`APPROVE`** $\rightarrow$ Auto-launches checkout. |
-| **3. No Product Under Budget** | `Buy me a laptop under 50000` | Lowest model is ₹71,038.20. **`NO_PRODUCT_UNDER_BUDGET`** $\rightarrow$ Renders breakdown with +₹21,038.20 diff & "Increase Budget" button. |
-| **4. Uncataloged Category** | `Buy running shoes under 3000` | Category not in database. **`PRODUCT_NOT_AVAILABLE`** $\rightarrow$ Displays available verified categories. |
-| **5. Policy Hard Cap Block** | `Buy me a MacBook Pro 14 under ₹2,10,000` | Exceeds merchant cap (₹1,00,000). **`BLOCK`** $\rightarrow$ Safety Intercept prevents payment creation. |
+| **1. Autonomous Approval** | `Buy me wireless headphones under ₹25,000, quantity 1` | Selects `Audio-Technica ATH-M50xBT2` (₹20,838.20). $\text{Amount} < ₹80\text{k}$. **`APPROVE`** $\rightarrow$ Automatically opens Razorpay Test Mode checkout. |
+| **2. Auto-Approved Laptop** | `Buy me a laptop for coding under 80000` | Selects `Acer Swift Go 14` (₹71,038.20). $\text{Amount} \le ₹80\text{k}$. **`APPROVE`** $\rightarrow$ Auto-launches checkout. |
+| **3. No Product Under Budget** | `Buy me a laptop under 50000` | Lowest available model is ₹71,038.20. **`NO_PRODUCT_UNDER_BUDGET`** $\rightarrow$ Renders breakdown with +₹21,038.20 difference & "Increase Budget" action. |
+| **4. Uncataloged Category** | `Buy running shoes under 3000` | Category not present in database. **`PRODUCT_NOT_AVAILABLE`** $\rightarrow$ Displays available verified merchant categories. |
+| **5. Policy Hard Cap Block** | `Buy me a MacBook Pro 14 under ₹2,10,000` | Exceeds merchant policy cap (₹1,00,000). **`BLOCK`** $\rightarrow$ Safety Intercept prevents payment creation. |
+
+---
+
+## 🔮 Implemented vs. Future Extensions
+
+### Currently Implemented
+- [x] Multi-agent intent extraction with Groq LLM (`llama-3.3-70b-versatile`)
+- [x] Immutable `IntentContract` locking in PostgreSQL
+- [x] Catalog search with availability classification & 3-attempt alternative finder
+- [x] 5-factor independent deterministic verification matrix
+- [x] Deterministic policy engine (`APPROVE`, `ASK_USER`, `BLOCK`)
+- [x] Razorpay Test Mode checkout integration with server-side HMAC SHA256 signature verification
+- [x] Immutable audit trail logging in PostgreSQL
+- [x] Minimal editorial frontend with real-time multi-agent execution pipeline
+
+### Future Extensions
+- Multi-merchant live catalog API integrations
+- User authentication and multi-tenant intent contract management
+- Webhook-based asynchronous payment capture verification
+- Configurable dynamic policy rules per organization
 
 ---
 
