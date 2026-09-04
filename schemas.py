@@ -80,3 +80,24 @@ class PurchaseIntentRequest(BaseModel):
         description="Natural language purchase request",
         example="Buy me a laptop for coding under 80000, quantity 1",
     )
+
+
+class BuyRequest(BaseModel):
+    intent_contract_id: int = Field(
+        ...,
+        gt=0,
+        description="ID of an existing IntentContract from PostgreSQL",
+        example=1,
+    )
+
+
+class PurchaseProposal(BaseModel):
+    product_id: int = Field(..., description="ID of the selected product")
+    product_name: str = Field(..., description="Name of the selected product")
+    quantity: int = Field(default=1, ge=1, description="Quantity proposed for purchase")
+    base_price: float = Field(..., description="Base price in INR")
+    shipping_charge: float = Field(..., description="Shipping charge in INR")
+    tax: float = Field(..., description="Applicable tax in INR")
+    final_amount: float = Field(..., description="Final calculated amount (base_price + shipping + tax)")
+    reason: str = Field(..., description="Explanation from Buyer Agent why this candidate was selected")
+
