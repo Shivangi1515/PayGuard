@@ -11,6 +11,8 @@ from schemas import (
     IntentContractResponse,
     BuyRequest,
     PurchaseProposal,
+    VerifyRequest,
+    VerificationResponse,
 )
 from agents.intent_agent import intent_agent, IntentExtractionError
 from agents.buyer_agent import (
@@ -19,6 +21,8 @@ from agents.buyer_agent import (
     IntentContractNotFoundError,
     NoMatchingProductError,
 )
+from agents.verification_agent import verification_agent
+from services.policy_engine import policy_engine
 from services.audit_service import audit_service
 
 # Configure logging
@@ -187,6 +191,55 @@ def propose_purchase(
         )
 
 
+@app.post("/agent/verify", response_model=VerificationResponse)
+def verify_purchase_proposal(
+    payload: VerifyRequest,
+    db: Session = Depends(get_db),
+):
+    """Verification Agent & Deterministic Policy Engine endpoint.
+
+    Independently verifies Buyer Agent proposal against IntentContract and Product data,
+    then executes the deterministic Python Policy Engine to return APPROVE, ASK_USER, or BLOCK.
+    """
+    # 1. Fetch Intent Contract
+    intent = db.query(models.IntentContract).filter(models.IntentContract.id == payload.intent_contract_id).first()
+    if not intent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"IntentContract with ID {payload.intent_contract_id} not found.",
+        )
+
+    # 2. Fetch Product
+    product = db.query(models.Product).filter(models.Product.id == payload.product_id).first()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with ID {payload.product_id} not found.",
+        )
+
+    # 3. Run independent Verification Agent checks
+    checks, all_passed, final_amount = verification_agent.verify_proposal(
+        db=db,
+        intent=intent,
+        product=product,
+        quantity=payload.quantity,
+    )
+
+    # 4. Evaluate with deterministic Python Policy Engine
+    response = policy_engine.evaluate_policy(
+        db=db,
+        intent=intent,
+        product=product,
+        verification_checks=checks,
+        all_verification_passed=all_passed,
+        final_amount=final_amount,
+        quantity=payload.quantity,
+    )
+
+    return response
+
+
 if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+
 

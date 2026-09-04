@@ -179,3 +179,68 @@ class PurchaseProposal(BaseModel):
             }
         }
     )
+
+
+class VerifyRequest(BaseModel):
+    intent_contract_id: int = Field(..., gt=0, description="ID of IntentContract from PostgreSQL")
+    product_id: int = Field(..., gt=0, description="ID of Product to verify")
+    quantity: int = Field(default=1, ge=1, description="Quantity proposed for purchase")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "intent_contract_id": 1,
+                "product_id": 6,
+                "quantity": 1
+            }
+        }
+    )
+
+
+class VerificationCheck(BaseModel):
+    check_name: str = Field(..., description="Identifier for the check")
+    status: str = Field(..., description="'PASS' or 'FAIL'")
+    explanation: str = Field(..., description="Detailed explanation of the check outcome")
+
+
+class VerificationResponse(BaseModel):
+    decision: str = Field(..., description="Final policy decision: 'APPROVE', 'ASK_USER', or 'BLOCK'")
+    reason: str = Field(..., description="Detailed rationale for the final decision")
+    checks: List[VerificationCheck] = Field(..., description="Individual verification check outcomes")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "decision": "APPROVE",
+                "reason": "All verification checks passed, payment authorized, and transaction within budget and policy limits.",
+                "checks": [
+                    {
+                        "check_name": "category_match",
+                        "status": "PASS",
+                        "explanation": "Product category 'Laptops' matches requested type 'Laptop'."
+                    },
+                    {
+                        "check_name": "purpose_relevance",
+                        "status": "PASS",
+                        "explanation": "Product description matches purpose 'coding'."
+                    },
+                    {
+                        "check_name": "quantity_limit",
+                        "status": "PASS",
+                        "explanation": "Proposed quantity (1) does not exceed requested quantity (1)."
+                    },
+                    {
+                        "check_name": "stock_availability",
+                        "status": "PASS",
+                        "explanation": "Product is in stock (20 available, 1 requested)."
+                    },
+                    {
+                        "check_name": "pricing_calculation",
+                        "status": "PASS",
+                        "explanation": "Final amount (INR 71038.20) equals base price (INR 59990.00) + shipping (INR 250.00) + tax (INR 10798.20)."
+                    }
+                ]
+            }
+        }
+    )
+
