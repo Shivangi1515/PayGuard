@@ -12,19 +12,21 @@ SYSTEM_PROMPT = """You are the Intent Extraction Agent for PayGuard, an autonomo
 
 Your SOLE responsibility is to analyze the user's natural language purchase request and extract structured purchase intent parameters into pure JSON.
 
-CRITICAL POLICY & SAFETY RULES:
+CRITICAL INSTRUCTIONS & SAFETY RULES:
 1. You are strictly an intent extraction engine.
-2. You MUST NOT approve payments, grant financial authorizations, or make policy decisions.
-3. 'payment_authorized' should only be true if the user's message explicitly includes words stating they authorize/agree to payment for this request (e.g. "I authorize payment", "charge my card", "authorized"). Default is false.
-4. Extract accurate numbers for budget and quantity. If budget is given in thousands/lakhs (e.g. "1.5 lakh"), convert to exact INR numeric value (e.g. 150000.0). If no budget is specified, provide a reasonable upper estimate based on the item class.
+2. You MUST NOT approve payments, grant financial authorizations, block purchases, or make policy decisions.
+3. 'payment_authorized' should be true if the user's request explicitly intends to initiate a purchase (e.g. 'Buy me...', 'Purchase...', 'Order...', 'I authorize payment', 'Charge my account'). If the user is just browsing or inquiring (e.g. 'What laptops do you have?', 'Tell me specs'), set payment_authorized to false.
+4. Convert budgets in thousands/lakhs (e.g. '80k', '80000', '1.5 lakh') into a numeric float in INR.
+5. If quantity is not specified, default to 1.
+6. Extract all specific feature preferences into the 'preferences' string list.
 
-You must respond ONLY with a valid JSON object adhering to this schema:
+Respond ONLY with a valid JSON object matching this schema:
 {
-  "product_type": "string (e.g., 'Laptop', 'Smartphone', 'Headphones', 'Electronics')",
-  "purpose": "string (e.g., 'Software Development', 'Gaming', 'Gym/Workout', 'Office')",
-  "max_budget": float (in INR, positive number),
-  "quantity": int (minimum 1, default 1),
-  "preferences": ["string", "string", ...],
+  "product_type": "string (e.g., 'Laptop', 'Smartphone', 'Headphones')",
+  "purpose": "string (e.g., 'coding', 'gaming', 'office work')",
+  "max_budget": float (number in INR),
+  "quantity": int (minimum 1),
+  "preferences": ["string", ...],
   "payment_authorized": boolean
 }
 """
@@ -44,7 +46,6 @@ class IntentAgent:
     def _clean_json_string(self, raw_content: str) -> str:
         """Strips markdown code blocks, backticks, and extra whitespace from LLM response."""
         content = raw_content.strip()
-        # Remove ```json ... ``` or ``` ... ``` wrappers if present
         if content.startswith("```"):
             content = re.sub(r"^```(?:json)?\s*", "", content, flags=re.IGNORECASE)
             content = re.sub(r"\s*```$", "", content)
@@ -106,16 +107,13 @@ class IntentAgent:
             logger.error(f"LLM response parsed into non-dict structure: {type(data)}")
             raise IntentExtractionError("LLM response did not format as a JSON object.")
 
-        # Ensure raw_request is stored with the contract
-        data["raw_request"] = request_text.strip()
-
         # Validate with Pydantic
         try:
             contract = IntentContract(**data)
             logger.info(
-                f"Successfully extracted IntentContract: product_type='{contract.product_type}', "
-                f"max_budget=₹{contract.max_budget:.2f}, quantity={contract.quantity}, "
-                f"authorized={contract.payment_authorized}"
+                f"Extracted IntentContract: product_type='{contract.product_type}', "
+                f"purpose='{contract.purpose}', max_budget={contract.max_budget}, "
+                f"quantity={contract.quantity}, authorized={contract.payment_authorized}"
             )
             return contract
         except ValidationError as e:
