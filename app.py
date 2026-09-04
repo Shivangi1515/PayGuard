@@ -88,7 +88,10 @@ def extract_purchase_intent(
         db.commit()
         db.refresh(db_intent)
 
-        # 3. Record successful audit log
+        # 3. Assign database ID to response contract
+        contract.intent_contract_id = db_intent.id
+
+        # 4. Record successful audit log
         audit_service.log(
             db=db,
             agent="Intent Agent",
