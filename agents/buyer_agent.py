@@ -45,14 +45,57 @@ class IntentContractNotFoundError(BuyerAgentError):
     pass
 
 
+class AvailabilityFailureError(BuyerAgentError):
+    """Structured exception for product availability and budget constraint failures."""
+
+    def __init__(
+        self,
+        failure_type: str,  # "NO_PRODUCT_UNDER_BUDGET", "PRODUCT_NOT_AVAILABLE", "PRODUCT_OUT_OF_STOCK", "SPEC_NOT_AVAILABLE"
+        message: str,
+        product_type: str,
+        user_budget: float,
+        lowest_available_price: Optional[float] = None,
+        lowest_product_name: Optional[str] = None,
+        difference: Optional[float] = None,
+        products_found_count: int = 0,
+        unmet_specs: Optional[List[str]] = None,
+        attempts_history: Optional[List[Dict[str, Any]]] = None,
+    ):
+        super().__init__(message)
+        self.failure_type = failure_type
+        self.message = message
+        self.product_type = product_type
+        self.user_budget = user_budget
+        self.lowest_available_price = lowest_available_price
+        self.lowest_product_name = lowest_product_name
+        self.difference = difference
+        self.products_found_count = products_found_count
+        self.unmet_specs = unmet_specs or []
+        self.attempts_history = attempts_history or []
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "error_type": self.failure_type,
+            "message": self.message,
+            "product_type": self.product_type,
+            "user_budget": self.user_budget,
+            "lowest_available_price": self.lowest_available_price,
+            "lowest_product_name": self.lowest_product_name,
+            "difference": self.difference,
+            "products_found_count": self.products_found_count,
+            "unmet_specs": self.unmet_specs,
+            "attempts_history": self.attempts_history,
+        }
+
+
 class NoMatchingProductError(BuyerAgentError):
-    """Raised when no products match the intent criteria or budget."""
+    """Legacy compatibility exception."""
     pass
 
 
 class BuyerAgent:
     """Agent responsible for selecting and proposing compliant product candidates based on intent contract,
-    incorporating automatic Intent Drift Detection and up to 3 Alternative Finder attempts.
+    incorporating availability classification, intent drift detection, and up to 3 alternative finder attempts.
     """
 
     def __init__(self, service: Optional[GroqService] = None):
@@ -65,44 +108,24 @@ class BuyerAgent:
             content = re.sub(r"\s*```$", "", content)
         return content.strip()
 
-    def _get_candidate_products(
+    def _find_catalog_products(
         self,
         db: Session,
         intent: models.IntentContract,
-        excluded_ids: List[int],
     ) -> List[models.Product]:
-        """Queries candidate products from PostgreSQL, filtering out previously rejected candidates."""
-        search_term = (intent.product_type or "").lower().strip()
-        base_term = search_term[:-1] if search_term.endswith("s") and len(search_term) > 3 else search_term
+        """Finds all catalog products matching requested category/product type."""
+        raw_type = (intent.product_type or "").lower().strip()
+        base_type = raw_type[:-1] if raw_type.endswith("s") and len(raw_type) > 3 else raw_type
 
+        # Query all products matching type keywords
         category_filter = or_(
-            models.Product.category.ilike(f"%{base_term}%"),
-            models.Product.category.ilike(f"%{search_term}%"),
-            models.Product.name.ilike(f"%{base_term}%"),
-            models.Product.description.ilike(f"%{base_term}%"),
+            models.Product.category.ilike(f"%{base_type}%"),
+            models.Product.category.ilike(f"%{raw_type}%"),
+            models.Product.name.ilike(f"%{base_type}%"),
+            models.Product.name.ilike(f"%{raw_type}%"),
+            models.Product.description.ilike(f"%{base_type}%"),
         )
-
-        query = (
-            db.query(models.Product)
-            .filter(category_filter)
-            .filter(models.Product.stock >= intent.quantity)
-        )
-        if excluded_ids:
-            query = query.filter(~models.Product.id.in_(excluded_ids))
-
-        candidates = query.all()
-
-        # Fallback search if strict category query returns empty
-        if not candidates:
-            query_all = (
-                db.query(models.Product)
-                .filter(models.Product.stock >= intent.quantity)
-            )
-            if excluded_ids:
-                query_all = query_all.filter(~models.Product.id.in_(excluded_ids))
-            candidates = query_all.all()
-
-        return candidates
+        return db.query(models.Product).filter(category_filter).all()
 
     def _select_best_candidate(
         self,
@@ -115,7 +138,7 @@ class BuyerAgent:
         candidate_map: Dict[int, models.Product] = {}
 
         for p in candidates:
-            calc_final = round(p.base_price + p.shipping_charge + p.tax, 2)
+            calc_final = round((p.base_price + p.shipping_charge + p.tax) * intent.quantity, 2)
             candidate_map[p.id] = p
             candidates_data.append({
                 "product_id": p.id,
@@ -185,20 +208,10 @@ class BuyerAgent:
         intent_contract_id: int,
         timeout: float = 20.0,
     ) -> PurchaseProposal:
-        """Executes candidate evaluation with Intent Drift Detection and up to 3 Alternative Finder attempts.
-
-        Workflow:
-        1. Fetch IntentContract from PostgreSQL.
-        2. Propose candidate and run Intent Drift Detection.
-        3. If drift is detected:
-           - Explain exactly what drifted
-           - Log: original proposal, drift detected, rejected reason
-           - Send Buyer Agent back to search for compliant alternative (max 3 attempts)
-        4. When compliant alternative is found:
-           - Log: alternative selected, final decision
-           - Return compliant PurchaseProposal
+        """Executes candidate evaluation with product availability handling, Intent Drift Detection,
+        and up to 3 Alternative Finder attempts.
         """
-        # 1. Read Intent Contract from PostgreSQL
+        # 1. Fetch Intent Contract from PostgreSQL
         intent = db.query(models.IntentContract).filter(models.IntentContract.id == intent_contract_id).first()
         if not intent:
             audit_service.log(
@@ -212,25 +225,104 @@ class BuyerAgent:
 
         logger.info(
             f"Buyer Agent starting workflow for IntentContract #{intent.id}: "
-            f"Type='{intent.product_type}', Purpose='{intent.purpose}', Max Budget=INR {intent.max_budget:.2f}"
+            f"Type='{intent.product_type}', Purpose='{intent.purpose}', Max Budget=INR {intent.max_budget:.2f}, Qty={intent.quantity}"
         )
 
+        # 2. Check Catalog Availability
+        matching_products = self._find_catalog_products(db=db, intent=intent)
+
+        # Case 2: PRODUCT NOT AVAILABLE
+        if not matching_products:
+            msg = f"We couldn't find any {intent.product_type or 'product'} matching your request in the merchant catalog."
+            audit_service.log(
+                db=db,
+                agent="Buyer Agent",
+                action="Catalog Search",
+                decision="PRODUCT_NOT_AVAILABLE",
+                reason=msg,
+            )
+            raise AvailabilityFailureError(
+                failure_type="PRODUCT_NOT_AVAILABLE",
+                message=msg,
+                product_type=intent.product_type or "product",
+                user_budget=intent.max_budget,
+                products_found_count=0,
+            )
+
+        # Case 3: PRODUCT OUT OF STOCK
+        in_stock_products = [p for p in matching_products if p.stock >= intent.quantity]
+        if not in_stock_products:
+            out_of_stock_name = matching_products[0].name
+            msg = f"{out_of_stock_name} is currently out of stock ({matching_products[0].stock} available, {intent.quantity} requested)."
+            audit_service.log(
+                db=db,
+                agent="Buyer Agent",
+                action="Stock Check",
+                decision="OUT_OF_STOCK",
+                reason=msg,
+            )
+            raise AvailabilityFailureError(
+                failure_type="PRODUCT_OUT_OF_STOCK",
+                message=msg,
+                product_type=intent.product_type or "product",
+                user_budget=intent.max_budget,
+                lowest_product_name=out_of_stock_name,
+                products_found_count=len(matching_products),
+            )
+
+        # Case 1: Check if ALL in-stock products exceed user's authorized budget
+        priced_products = []
+        for p in in_stock_products:
+            final_p = round((p.base_price + p.shipping_charge + p.tax) * intent.quantity, 2)
+            priced_products.append((p, final_p))
+
+        priced_products.sort(key=lambda x: x[1])
+        lowest_product, lowest_price = priced_products[0]
+
+        if lowest_price > intent.max_budget:
+            diff = round(lowest_price - intent.max_budget, 2)
+            msg = (
+                f"Couldn't find a {intent.product_type or 'product'} within your ₹{intent.max_budget:,.0f} budget.\n"
+                f"The lowest available {intent.product_type or 'product'} ({lowest_product.name}) costs ₹{lowest_price:,.2f}, "
+                f"which is ₹{diff:,.2f} above your budget."
+            )
+            audit_service.log(
+                db=db,
+                agent="Buyer Agent",
+                action="Budget Check",
+                decision="NO_PRODUCT_UNDER_BUDGET",
+                reason=msg,
+            )
+            raise AvailabilityFailureError(
+                failure_type="NO_PRODUCT_UNDER_BUDGET",
+                message=msg,
+                product_type=intent.product_type or "product",
+                user_budget=intent.max_budget,
+                lowest_available_price=lowest_price,
+                lowest_product_name=lowest_product.name,
+                difference=diff,
+                products_found_count=len(in_stock_products),
+            )
+
+        # 3. Alternative Search Loop (Up to 3 attempts, preserving hard constraints)
         excluded_ids: List[int] = []
         attempts_history: List[AlternativeAttempt] = []
-        original_proposal_info: Optional[Dict[str, Any]] = None
+        last_drift_reasons: List[str] = []
+
+        # Available candidates within budget and in stock
+        eligible_candidates = [p for p, price in priced_products if price <= intent.max_budget]
 
         for attempt in range(1, MAX_ALTERNATIVE_ATTEMPTS + 1):
-            logger.info(f"Buyer Agent search attempt {attempt}/{MAX_ALTERNATIVE_ATTEMPTS} (Excluded: {excluded_ids})")
-
-            # Search available candidates in PostgreSQL
-            candidates = self._get_candidate_products(db=db, intent=intent, excluded_ids=excluded_ids)
-            if not candidates:
-                logger.warning(f"No candidates remaining in PostgreSQL at attempt {attempt}.")
+            remaining_candidates = [p for p in eligible_candidates if p.id not in excluded_ids]
+            if not remaining_candidates:
+                logger.warning(f"No remaining eligible candidates at attempt {attempt}.")
                 break
+
+            logger.info(f"Buyer Agent candidate evaluation attempt {attempt}/{MAX_ALTERNATIVE_ATTEMPTS} (Candidates: {len(remaining_candidates)})")
 
             # Select best candidate from remaining pool
             candidate_product, selection_reason = self._select_best_candidate(
-                candidates=candidates,
+                candidates=remaining_candidates,
                 intent=intent,
                 timeout=timeout,
             )
@@ -240,36 +332,22 @@ class BuyerAgent:
                 2,
             )
 
-            # Record Proposal Logging (original vs alternative)
+            # Audit log proposal
             if attempt == 1:
-                original_proposal_info = {
-                    "product_id": candidate_product.id,
-                    "product_name": candidate_product.name,
-                    "final_amount": final_amount,
-                    "reason": selection_reason,
-                }
-                # Log: original proposal
                 audit_service.log(
                     db=db,
                     agent="Buyer Agent",
                     action="Original Proposal",
                     decision="PROPOSED",
-                    reason=(
-                        f"Original Proposal: '{candidate_product.name}' (ID: {candidate_product.id}) | "
-                        f"Final Amount: INR {final_amount:.2f} | Reason: {selection_reason}"
-                    ),
+                    reason=f"Selected candidate '{candidate_product.name}' (ID: {candidate_product.id}) | Amount: INR {final_amount:.2f}",
                 )
             else:
-                # Log: alternative selected
                 audit_service.log(
                     db=db,
                     agent="Buyer Agent",
                     action="Alternative Selected",
                     decision="ALTERNATIVE_PROPOSED",
-                    reason=(
-                        f"Alternative Attempt #{attempt}: Selected alternative '{candidate_product.name}' (ID: {candidate_product.id}) | "
-                        f"Final Amount: INR {final_amount:.2f} | Reason: {selection_reason}"
-                    ),
+                    reason=f"Attempt #{attempt}: Selected alternative '{candidate_product.name}' (ID: {candidate_product.id}) | Amount: INR {final_amount:.2f}",
                 )
 
             # Run Intent Drift Detection
@@ -281,38 +359,18 @@ class BuyerAgent:
             )
 
             if drift_report.has_drift:
-                # Drift detected: do NOT create payment, log drift & rejection reason
-                logger.warning(
-                    f"Attempt #{attempt} - Drift detected on Product #{candidate_product.id} ('{candidate_product.name}'): "
-                    f"{', '.join(drift_report.drift_types)}"
-                )
+                logger.warning(f"Attempt #{attempt} drift on #{candidate_product.id}: {', '.join(drift_report.drift_types)}")
+                last_drift_reasons = drift_report.drift_types
 
-                # Log: drift detected
+                rejected_reason = f"Candidate #{candidate_product.id} rejected: {' | '.join(drift_report.explanations)}"
                 audit_service.log(
                     db=db,
                     agent="Drift Detector",
                     action="Drift Detected",
-                    decision="DRIFT_DETECTED",
-                    reason=(
-                        f"Attempt #{attempt} Product '{candidate_product.name}' (ID: {candidate_product.id}) "
-                        f"exhibited drift: {', '.join(drift_report.drift_types)} | Details: {drift_report.summary}"
-                    ),
-                )
-
-                # Log: rejected reason
-                rejected_reason = (
-                    f"Candidate #{candidate_product.id} ('{candidate_product.name}') rejected due to drift: "
-                    f"{' | '.join(drift_report.explanations)}"
-                )
-                audit_service.log(
-                    db=db,
-                    agent="Buyer Agent",
-                    action="Rejected Reason",
                     decision="REJECTED",
                     reason=rejected_reason,
                 )
 
-                # Record attempt history
                 attempts_history.append(
                     AlternativeAttempt(
                         attempt_number=attempt,
@@ -325,70 +383,64 @@ class BuyerAgent:
                     )
                 )
 
-                # Exclude product and trigger alternative search loop
                 excluded_ids.append(candidate_product.id)
                 continue
 
-            else:
-                # Candidate is fully compliant!
-                logger.info(
-                    f"Attempt #{attempt} - Compliant product found: '{candidate_product.name}' (ID: {candidate_product.id})"
-                )
+            # Candidate is compliant
+            logger.info(f"Attempt #{attempt} compliant candidate found: '{candidate_product.name}'")
+            audit_service.log(
+                db=db,
+                agent="Buyer Agent",
+                action="Final Decision",
+                decision="SUCCESS",
+                reason=f"Compliant proposal confirmed for '{candidate_product.name}' (ID: {candidate_product.id}).",
+            )
 
-                # Log: final decision
-                audit_service.log(
-                    db=db,
-                    agent="Buyer Agent",
-                    action="Final Decision",
-                    decision="SUCCESS",
-                    reason=(
-                        f"Compliant purchase proposal approved for '{candidate_product.name}' (ID: {candidate_product.id}) "
-                        f"after {attempt} attempt(s). Final Amount: INR {final_amount:.2f}."
-                    ),
-                )
-
-                attempts_history.append(
-                    AlternativeAttempt(
-                        attempt_number=attempt,
-                        product_id=candidate_product.id,
-                        product_name=candidate_product.name,
-                        final_amount=final_amount,
-                        drift_detected=False,
-                        drift_types=[],
-                        rejected_reason=None,
-                    )
-                )
-
-                return PurchaseProposal(
+            attempts_history.append(
+                AlternativeAttempt(
+                    attempt_number=attempt,
                     product_id=candidate_product.id,
                     product_name=candidate_product.name,
-                    quantity=intent.quantity,
-                    base_price=candidate_product.base_price,
-                    shipping_charge=candidate_product.shipping_charge,
-                    tax=candidate_product.tax,
                     final_amount=final_amount,
-                    reason=selection_reason,
                     drift_detected=False,
-                    drift_reasons=[],
-                    attempts_count=attempt,
-                    alternative_selected=(attempt > 1),
-                    attempts_history=attempts_history,
+                    drift_types=[],
+                    rejected_reason=None,
                 )
+            )
 
-        # If loop finishes without finding a compliant candidate
-        final_rejected_msg = (
-            f"Maximum alternative attempts ({MAX_ALTERNATIVE_ATTEMPTS}) reached for IntentContract #{intent.id}. "
-            f"All {len(attempts_history)} evaluated candidate(s) failed intent drift verification."
-        )
+            return PurchaseProposal(
+                product_id=candidate_product.id,
+                product_name=candidate_product.name,
+                quantity=intent.quantity,
+                base_price=candidate_product.base_price,
+                shipping_charge=candidate_product.shipping_charge,
+                tax=candidate_product.tax,
+                final_amount=final_amount,
+                reason=selection_reason,
+                drift_detected=False,
+                drift_reasons=[],
+                attempts_count=attempt,
+                alternative_selected=(attempt > 1),
+                attempts_history=attempts_history,
+            )
+
+        # Case 4: SPECIFICATION NOT AVAILABLE (If candidates existed in budget but none passed specific criteria)
+        unmet_msg = f"No available product matches all your requirements: {', '.join(last_drift_reasons) or 'specifications'} could not be satisfied by the current catalog."
         audit_service.log(
             db=db,
             agent="Buyer Agent",
-            action="Final Decision",
-            decision="BLOCKED",
-            reason=final_rejected_msg,
+            action="Specification Check",
+            decision="SPEC_NOT_AVAILABLE",
+            reason=unmet_msg,
         )
-
-        raise NoMatchingProductError(final_rejected_msg)
+        raise AvailabilityFailureError(
+            failure_type="SPEC_NOT_AVAILABLE",
+            message=unmet_msg,
+            product_type=intent.product_type or "product",
+            user_budget=intent.max_budget,
+            unmet_specs=last_drift_reasons,
+            attempts_history=[a.model_dump() for a in attempts_history],
+        )
 
 
 buyer_agent = BuyerAgent()

@@ -32,6 +32,7 @@ from agents.buyer_agent import (
     buyer_agent,
     BuyerAgentError,
     IntentContractNotFoundError,
+    AvailabilityFailureError,
     NoMatchingProductError,
 )
 from agents.verification_agent import verification_agent
@@ -243,6 +244,11 @@ def propose_purchase(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
+        )
+    except AvailabilityFailureError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=e.to_dict(),
         )
     except NoMatchingProductError as e:
         raise HTTPException(

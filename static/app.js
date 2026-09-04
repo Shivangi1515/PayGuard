@@ -183,7 +183,7 @@ class PayGuardApp {
 
     } catch (err) {
       console.error('Execution error:', err);
-      this.appendErrorBlock(agentMsgEl, err.message || 'An error occurred during agent processing.', pipelineId);
+      this.appendErrorBlock(agentMsgEl, err, pipelineId);
     } finally {
       this.updateProcessingState(false);
       this.scrollToActiveStream();
@@ -213,7 +213,14 @@ class PayGuardApp {
     });
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.detail || 'Failed to generate purchase proposal.');
+      const detail = err.detail;
+      const errorObj = new Error(
+        typeof detail === 'string'
+          ? detail
+          : (detail?.message || 'Failed to generate purchase proposal.')
+      );
+      errorObj.availabilityData = typeof detail === 'object' ? detail : null;
+      throw errorObj;
     }
     return await res.json();
   }
@@ -1086,20 +1093,105 @@ class PayGuardApp {
     `;
   }
 
-  appendErrorBlock(containerEl, msg, pipelineId = null) {
+  appendErrorBlock(containerEl, err, pipelineId = null) {
     const slot = containerEl.querySelector('.card-slot');
     if (!slot) return;
 
+    const data = err?.availabilityData || null;
+    const msg = typeof err === 'string' ? err : (err?.message || 'An error occurred during agent processing.');
+
     if (pipelineId) {
-      this.updatePipelineStep(pipelineId, 'buyer', 'fail', 'All Candidates Failed Drift Check');
+      this.updatePipelineStep(pipelineId, 'buyer', 'fail', data?.error_type || 'Availability Notice');
       this.updatePipelineStep(pipelineId, 'verify', 'fail', 'Interrupted');
       this.updatePipelineStep(pipelineId, 'policy', 'fail', 'Blocked');
       this.updatePipelineStep(pipelineId, 'payment', 'fail', 'Prevented');
     }
 
-    const isDriftLimit = msg.toLowerCase().includes('maximum alternative attempts') || msg.toLowerCase().includes('failed intent drift');
+    const formatInr = (val) =>
+      new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(val || 0);
 
-    if (isDriftLimit) {
+    // Case 1: NO PRODUCT UNDER BUDGET
+    if (data?.error_type === 'NO_PRODUCT_UNDER_BUDGET') {
+      const cardId = `avail-card-${Date.now()}`;
+      slot.insertAdjacentHTML(
+        'beforeend',
+        `
+        <div id="${cardId}" class="surface-card rounded-xl p-5 border-l-2 border-l-[#CFA64D] bg-[#0C0D0C] animate-fade-in-up space-y-4">
+          <div class="flex items-center justify-between pb-2.5 border-b border-[#22231F]">
+            <div class="flex items-center space-x-2 text-[#CFA64D]">
+              <span class="text-base font-bold">🟡</span>
+              <span class="font-semibold text-xs uppercase tracking-wider font-mono-code">No Product Under Budget</span>
+            </div>
+            <span class="text-[10px] font-mono-code text-[#CFA64D] bg-[#CFA64D]/10 px-2 py-0.5 rounded border border-[#CFA64D]/25">
+              ${data.products_found_count} Candidates In Catalog
+            </span>
+          </div>
+
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">
+            Couldn't find a ${this.escapeHtml(data.product_type)} within your ${formatInr(data.user_budget)} budget.
+          </h3>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-[#111210] rounded-lg border border-[#22231F] text-xs">
+            <div>
+              <div class="text-[10px] font-mono-code text-[#9A9991] uppercase mb-0.5">Your Max Budget</div>
+              <div class="font-mono-code text-[#D6A94A] font-semibold">${formatInr(data.user_budget)}</div>
+            </div>
+            <div>
+              <div class="text-[10px] font-mono-code text-[#9A9991] uppercase mb-0.5">Lowest Option</div>
+              <div class="font-mono-code text-[#F3F0E8] font-medium truncate" title="${this.escapeHtml(data.lowest_product_name || '')}">
+                ${this.escapeHtml(data.lowest_product_name || 'Option')}
+              </div>
+            </div>
+            <div>
+              <div class="text-[10px] font-mono-code text-[#9A9991] uppercase mb-0.5">Lowest Final Price</div>
+              <div class="font-mono-code text-[#CFA64D] font-semibold">${formatInr(data.lowest_available_price)}</div>
+            </div>
+            <div>
+              <div class="text-[10px] font-mono-code text-[#9A9991] uppercase mb-0.5">Difference</div>
+              <div class="font-mono-code text-[#C96A67] font-semibold">+${formatInr(data.difference)}</div>
+            </div>
+          </div>
+
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            The lowest available ${this.escapeHtml(data.product_type)} (<strong class="text-[#F3F0E8]">${this.escapeHtml(data.lowest_product_name || '')}</strong>) costs <strong class="text-[#F3F0E8]">${formatInr(data.lowest_available_price)}</strong>, which is <strong class="text-[#C96A67]">${formatInr(data.difference)} above your budget</strong>.
+            <span class="block mt-1 text-[#64635D] text-[11px] font-mono-code">PayGuard does not automatically increase or relax your authorized budget.</span>
+          </p>
+
+          <div class="flex flex-wrap gap-2.5 pt-1">
+            <button class="btn-gold px-5 py-2.5 rounded-xl text-xs font-semibold tracking-wider flex items-center space-x-2 increase-budget-btn">
+              <span>INCREASE BUDGET TO ${formatInr(data.lowest_available_price)}</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+              </svg>
+            </button>
+            <button class="btn-outline px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wider cancel-avail-btn">
+              CANCEL
+            </button>
+          </div>
+        </div>
+      `
+      );
+
+      const cardEl = document.getElementById(cardId);
+      cardEl?.querySelector('.increase-budget-btn')?.addEventListener('click', () => {
+        const newPrompt = `Buy me a ${data.product_type} under ₹${Math.ceil(data.lowest_available_price)}`;
+        if (this.dom.heroInput) {
+          this.dom.heroInput.value = newPrompt;
+        }
+        this.handleUserSubmit(newPrompt);
+      });
+
+      cardEl?.querySelector('.cancel-avail-btn')?.addEventListener('click', () => {
+        cardEl.insertAdjacentHTML(
+          'beforeend',
+          `<div class="p-3 bg-[#111210] rounded-lg border border-[#22231F] text-xs text-[#9A9991] mt-2">Purchase session cancelled.</div>`
+        );
+      });
+      return;
+    }
+
+    // Case 2: PRODUCT NOT AVAILABLE
+    if (data?.error_type === 'PRODUCT_NOT_AVAILABLE') {
       slot.insertAdjacentHTML(
         'beforeend',
         `
@@ -1107,39 +1199,102 @@ class PayGuardApp {
           <div class="flex items-center justify-between pb-2 border-b border-[#22231F]">
             <div class="flex items-center space-x-2 text-[#C96A67]">
               <span class="text-base font-bold">⊘</span>
-              <span class="font-semibold text-xs uppercase tracking-wider font-mono-code">Autonomous Safety Intercept · Intent Drift Guard</span>
+              <span class="font-semibold text-xs uppercase tracking-wider font-mono-code">Product Not Available</span>
             </div>
-            <span class="text-[10px] font-mono-code text-[#C96A67] bg-[#C96A67]/10 px-2 py-0.5 rounded border border-[#C96A67]/20">
-              3 ATTEMPTS EVALUATED
-            </span>
+            <span class="text-[10px] font-mono-code text-[#64635D]">0 Catalog Matches</span>
           </div>
 
-          <p class="text-xs text-[#F3F0E8] leading-relaxed">
-            PayGuard prevented an unauthorized purchase. The Buyer Agent evaluated 3 candidate products in the merchant catalog, but <strong class="text-[#C96A67]">all 3 candidates exceeded your authorized budget or failed specification constraints</strong>.
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">
+            We couldn't find any ${this.escapeHtml(data.product_type)} currently available.
+          </h3>
+
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            We couldn't find ${this.escapeHtml(data.product_type)} matching your request in the merchant catalog. PayGuard does not invent products or purchase from unverified merchants.
           </p>
 
-          <div class="p-3 bg-[#111210] rounded-lg border border-[#22231F] text-xs font-mono-code text-[#9A9991] space-y-1">
-            <div class="text-[#64635D] text-[10px] uppercase">Safety Protection Active</div>
-            <div>0 orders were created. Your funds remain 100% protected.</div>
-          </div>
-
-          <div class="text-[11px] text-[#9A9991]">
-            <strong class="text-[#D6A94A]">Suggestion:</strong> Try increasing your budget or entering a broader search term (e.g. <em>"Buy me wireless headphones under ₹35,000"</em> or <em>"Buy a laptop under ₹80,000"</em>).
+          <div class="p-3 bg-[#111210] rounded-lg border border-[#22231F] text-xs space-y-1.5">
+            <div class="text-[10px] font-mono-code text-[#D6A94A] uppercase">Available Verified Categories</div>
+            <div class="flex flex-wrap gap-2 text-xs font-mono-code text-[#F3F0E8]">
+              <span class="px-2 py-0.5 rounded bg-[#0C0D0C] border border-[#22231F]">Laptops (6 models)</span>
+              <span class="px-2 py-0.5 rounded bg-[#0C0D0C] border border-[#22231F]">Smartphones (4 models)</span>
+              <span class="px-2 py-0.5 rounded bg-[#0C0D0C] border border-[#22231F]">Headphones (5 models)</span>
+            </div>
           </div>
         </div>
       `
       );
-    } else {
+      return;
+    }
+
+    // Case 3: PRODUCT OUT OF STOCK
+    if (data?.error_type === 'PRODUCT_OUT_OF_STOCK') {
       slot.insertAdjacentHTML(
         'beforeend',
         `
-        <div class="p-4 rounded-xl bg-[#C96A67]/10 border border-[#C96A67]/30 text-xs text-[#C96A67] animate-fade-in-up">
-          <span class="font-bold font-mono-code uppercase text-[11px] block mb-1">Execution Notice:</span>
-          <p class="leading-relaxed font-mono-code">${this.escapeHtml(msg)}</p>
+        <div class="surface-card rounded-xl p-5 border-l-2 border-l-[#C96A67] bg-[#0C0D0C] animate-fade-in-up space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#22231F]">
+            <div class="flex items-center space-x-2 text-[#C96A67]">
+              <span class="text-base font-bold">⊘</span>
+              <span class="font-semibold text-xs uppercase tracking-wider font-mono-code">Product Out of Stock</span>
+            </div>
+            <span class="text-[10px] font-mono-code text-[#C96A67] bg-[#C96A67]/10 px-2 py-0.5 rounded border border-[#C96A67]/20">
+              0 Units Available
+            </span>
+          </div>
+
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">
+            ${this.escapeHtml(data.lowest_product_name || data.product_type)} is currently out of stock.
+          </h3>
+
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            ${this.escapeHtml(data.message || 'Matching products were found in the catalog, but all units are currently out of stock.')}
+          </p>
         </div>
       `
       );
+      return;
     }
+
+    // Case 4: SPECIFICATION NOT AVAILABLE
+    if (data?.error_type === 'SPEC_NOT_AVAILABLE') {
+      slot.insertAdjacentHTML(
+        'beforeend',
+        `
+        <div class="surface-card rounded-xl p-5 border-l-2 border-l-[#CFA64D] bg-[#0C0D0C] animate-fade-in-up space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-[#22231F]">
+            <div class="flex items-center space-x-2 text-[#CFA64D]">
+              <span class="text-base font-bold">🟡</span>
+              <span class="font-semibold text-xs uppercase tracking-wider font-mono-code">Specification Not Available</span>
+            </div>
+            <span class="text-[10px] font-mono-code text-[#CFA64D] bg-[#CFA64D]/10 px-2 py-0.5 rounded border border-[#CFA64D]/25">
+              Hard Constraint Active
+            </span>
+          </div>
+
+          <h3 class="font-serif-display text-lg font-medium text-[#F3F0E8]">
+            No available product matches all your requirements.
+          </h3>
+
+          <p class="text-xs text-[#9A9991] leading-relaxed">
+            ${this.escapeHtml(data.message || 'The current merchant catalog could not satisfy all requested specifications.')}
+            <span class="block mt-1 text-[#64635D] text-[11px] font-mono-code">PayGuard does not silently relax hard specifications.</span>
+          </p>
+        </div>
+      `
+      );
+      return;
+    }
+
+    // Generic error fallback
+    slot.insertAdjacentHTML(
+      'beforeend',
+      `
+      <div class="p-4 rounded-xl bg-[#C96A67]/10 border border-[#C96A67]/30 text-xs text-[#C96A67] animate-fade-in-up">
+        <span class="font-bold font-mono-code uppercase text-[11px] block mb-1">Execution Notice:</span>
+        <p class="leading-relaxed font-mono-code">${this.escapeHtml(msg)}</p>
+      </div>
+    `
+    );
   }
 
   // --- Drawers & Modals ---
